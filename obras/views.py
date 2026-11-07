@@ -6,8 +6,11 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.conf import settings
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils import timezone
+from datetime import date
+from calendar import monthrange
 from .models import Torre, Apartamento, MedicaoMensal
 from .ia_vistoria import analisar_video_obra
 
@@ -38,21 +41,35 @@ def logout_sistema(request):
 
 @login_required(login_url='login_sistema')
 def painel_principal(request):
-    mes_selecionado = request.GET.get('mes', '2026-11')
+    mes_selecionado = request.GET.get('mes', timezone.localdate().strftime('%Y-%m'))
+    meses_disponiveis = list(MedicaoMensal.objects.order_by('-mes_referencia').values_list('mes_referencia', flat=True).distinct())
+    if 'mes' not in request.GET and meses_disponiveis:
+        mes_selecionado = meses_disponiveis[0]
+    if mes_selecionado not in meses_disponiveis and meses_disponiveis:
+        mes_selecionado = meses_disponiveis[0]
     torre_selecionada = request.GET.get('torre', 'TODAS')
     andar_selecionado = request.GET.get('andar', 'TODOS')
 
     torres = Torre.objects.all()
     medicoes_mes_atual = MedicaoMensal.objects.filter(mes_referencia=mes_selecionado).select_related('apartamento__torre')
-    medicoes_mes_anterior = MedicaoMensal.objects.filter(mes_referencia='2026-10').select_related('apartamento__torre')
+    try:
+        ano, mes = map(int, mes_selecionado.split('-'))
+        mes_anterior = f'{ano - 1}-12' if mes == 1 else f'{ano}-{mes - 1:02d}'
+    except (ValueError, TypeError):
+        mes_anterior = ''
+    medicoes_mes_anterior = MedicaoMensal.objects.filter(mes_referencia=mes_anterior).select_related('apartamento__torre')
 
     if torre_selecionada != 'TODAS':
         medicoes_mes_atual = medicoes_mes_atual.filter(apartamento__torre__id=torre_selecionada)
         medicoes_mes_anterior = medicoes_mes_anterior.filter(apartamento__torre__id=torre_selecionada)
 
     if andar_selecionado != 'TODOS':
-        medicoes_mes_atual = medicoes_mes_atual.filter(apartamento__andar=int(andar_selecionado))
-        medicoes_mes_anterior = medicoes_mes_anterior.filter(apartamento__andar=int(andar_selecionado))
+        try:
+            andar_num = int(andar_selecionado)
+        except ValueError:
+            andar_num = None
+        medicoes_mes_atual = medicoes_mes_atual.filter(apartamento__andar=andar_num)
+        medicoes_mes_anterior = medicoes_mes_anterior.filter(apartamento__andar=andar_num)
 
     total_med = medicoes_mes_atual.count()
     avanco_atual = round(sum(m.percentual_concluido for m in medicoes_mes_atual) / total_med, 1) if total_med > 0 else 0.0
@@ -60,9 +77,9 @@ def painel_principal(request):
     total_ant = medicoes_mes_anterior.count()
     avanco_anterior = round(sum(m.percentual_concluido for m in medicoes_mes_anterior) / total_ant, 1) if total_ant > 0 else 0.0
 
-    ritmo_mensal = round(avanco_atual - avanco_anterior, 1) if mes_selecionado == '2026-11' else round(avanco_atual * 0.15, 1)
+    ritmo_mensal = round(avanco_atual - avanco_anterior, 1) if total_ant and total_med else None
     falta_construir = max(0.0, round(100.0 - avanco_atual, 1))
-    meses_para_terminar = round(falta_construir / ritmo_mensal, 1) if ritmo_mensal > 0 else 0.0
+    meses_para_terminar = round(falta_construir / ritmo_mensal, 1) if ritmo_mensal is not None and ritmo_mensal > 0 else None
 
     unidades_iso_ok = sum(1 for m in medicoes_mes_atual if m.cor_status() == 'green')
     unidades_trava = sum(1 for m in medicoes_mes_atual if m.cor_status() == 'yellow')
@@ -83,12 +100,15 @@ def painel_principal(request):
 
     context = {
         'torres': torres,
+        'meses_disponiveis': meses_disponiveis,
+        'ia_configurada': settings.GEMINI_API_KEY != 'MODO_SIMULACAO',
+        'pode_gerar_demo': request.user.is_superuser and settings.DEBUG,
         'resumo_torres': resumo_torres,
         'matriz_andares': matriz_andares,
         'mes_selecionado': mes_selecionado,
         'torre_selecionada': torre_selecionada,
         'andar_selecionado': andar_selecionado,
-        'andares_disponiveis': range(6, 0, -1),
+        'andares_disponiveis': sorted(set(Apartamento.objects.values_list('andar', flat=True)), reverse=True),
         'avanco_atual': avanco_atual,
         'ritmo_mensal': ritmo_mensal,
         'falta_construir': falta_construir,
@@ -108,7 +128,9 @@ def popular_dados_demo(request):
         messages.error(request, 'Confirme explicitamente a substituição dos dados de demonstração.')
         return redirect('painel_principal')
     if request.method == 'POST':
-        Torre.objects.all().delete()
+        if Torre.objects.exists():
+            messages.error(request, 'Geração bloqueada: já existem torres cadastradas. Nenhum dado foi apagado.')
+            return redirect('painel_principal')
         for nome_torre, fator in [("Torre A - Norte", 1.0), ("Torre B - Sul", 0.75)]:
             torre = Torre.objects.create(nome=nome_torre, total_andares=6)
             for andar in range(1, 7):
@@ -155,41 +177,59 @@ def avaliar_apartamento(request, medicao_id):
         medicao = get_object_or_404(MedicaoMensal, id=medicao_id)
         acao = request.POST.get('acao')
 
-        if acao == 'ia_video' and request.FILES.get('video_vistoria'):
-            video = request.FILES['video_vistoria']
-            temp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-                    for chunk in video.chunks():
-                        tmp.write(chunk)
-                    temp_path = tmp.name
-
-                laudo = analisar_video_obra(temp_path, medicao.apartamento.numero, medicao.requisito_iso)
-                medicao.etapa_atual = laudo.etapa_identificada
-                medicao.percentual_concluido = laudo.percentual_sugerido
-                medicao.status_iso = laudo.status_iso_sugerido
-                medicao.laudo_ia = laudo.resumo_tecnico
-                trava = medicao.salvar_com_trava_iso()
-
-                if trava:
-                    messages.warning(request, f"🔒 IA sugeriu 100% no Apto {medicao.apartamento.numero}, mas a Trava ISO 9001 manteve em 90%!")
-                else:
-                    messages.success(request, f"🤖 Vídeo do Apto {medicao.apartamento.numero} avaliado pela IA: {medicao.percentual_concluido}% ({medicao.status_iso})!")
-            except Exception as e:
-                messages.error(request, f"Erro na leitura da IA: {e}")
-            finally:
-                if temp_path and os.path.exists(temp_path):
-                    os.remove(temp_path)
-        else:
-            medicao.percentual_concluido = int(request.POST.get('percentual', medicao.percentual_concluido))
-            medicao.status_iso = request.POST.get('status_iso', medicao.status_iso)
-            medicao.etapa_atual = request.POST.get('etapa_atual', medicao.etapa_atual)
-            medicao.laudo_ia = request.POST.get('laudo_ia', medicao.laudo_ia)
-            trava = medicao.salvar_com_trava_iso()
-            if trava:
-                messages.warning(request, f"🔒 TRAVA ISO 9001 ATIVA: Apto {medicao.apartamento.numero} bloqueado em 90% até a FVS ficar CONFORME.")
+        if acao == 'ia_video':
+            video = request.FILES.get('video_vistoria')
+            if not video:
+                messages.error(request, 'Selecione um vídeo antes de solicitar análise.')
+            elif video.size > 30 * 1024 * 1024:
+                messages.error(request, 'Vídeo excede o limite de 30 MB.')
+            elif settings.GEMINI_API_KEY == 'MODO_SIMULACAO':
+                messages.error(request, 'Configure GEMINI_API_KEY para analisar vídeos reais.')
             else:
-                messages.info(request, f"✅ Apto {medicao.apartamento.numero} atualizado com sucesso!")
+                temp_path = None
+                try:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+                        for chunk in video.chunks():
+                            tmp.write(chunk)
+                        temp_path = tmp.name
+                    laudo = analisar_video_obra(temp_path, medicao.apartamento.numero, medicao.requisito_iso)
+                    sugestao = (
+                        f"Etapa sugerida: {laudo.etapa_identificada}\\n"
+                        f"Avanço sugerido: {laudo.percentual_sugerido}%\\n"
+                        f"Status sugerido: {laudo.status_iso_sugerido}\\n"
+                        f"Análise: {laudo.resumo_tecnico}"
+                    )
+                    medicao.sugestao_ia = sugestao
+                    medicao.save(update_fields=['sugestao_ia'])
+                    messages.info(request, 'Análise recebida como sugestão. A medição e a FVS não foram alteradas; valide o resultado manualmente.')
+                except Exception:
+                    messages.error(request, 'Não foi possível analisar o vídeo. Confira a configuração e tente novamente.')
+                finally:
+                    if temp_path and os.path.exists(temp_path):
+                        os.remove(temp_path)
+        elif acao == 'manual':
+            try:
+                percentual = int(request.POST.get('percentual', ''))
+                status = request.POST.get('status_iso', '')
+                etapa = request.POST.get('etapa_atual', '').strip()
+                observacao = request.POST.get('laudo_ia', '').strip()
+                if status not in dict(MedicaoMensal.STATUS_ISO):
+                    raise ValueError('Status de FVS inválido.')
+                if not 0 <= percentual <= 100:
+                    raise ValueError('Percentual deve estar entre 0 e 100.')
+                if not etapa or len(etapa) > 100:
+                    raise ValueError('Informe uma etapa com até 100 caracteres.')
+                medicao.percentual_concluido = percentual
+                medicao.status_iso = status
+                medicao.etapa_atual = etapa
+                medicao.laudo_ia = observacao
+                medicao.full_clean()
+                medicao.save()
+                messages.success(request, f'Medição do apartamento {medicao.apartamento.numero} salva. Avanço físico e situação da FVS são independentes.')
+            except (ValueError, ValidationError) as exc:
+                messages.error(request, f'Dados inválidos: {exc}')
+        else:
+            messages.error(request, 'Ação não reconhecida.')
 
     destino = request.META.get('HTTP_REFERER', '')
     if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
