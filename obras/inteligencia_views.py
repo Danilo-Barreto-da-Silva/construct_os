@@ -265,3 +265,19 @@ def documento_privado(request,documento_id):
     resp['Cache-Control']='private, no-store'
     resp['X-Content-Type-Options']='nosniff'
     return resp
+
+
+
+@login_required(login_url='login_sistema')
+@require_POST
+def reprocessar_vistoria(request,vistoria_id):
+    apenas_gestor(request.user)
+    visto = get_object_or_404(VistoriaInteligente,pk=vistoria_id)
+    if visto.estado != 'ERRO' or visto.sugestoes.exists():
+        messages.error(request,'Somente análises que falharam e não têm sugestões podem ser reprocessadas.')
+    else:
+        visto.estado='PENDENTE'
+        visto.erro_publico=''
+        visto.save(update_fields=['estado','erro_publico'])
+        messages.success(request,'Vídeo recolocado na fila para análise por comando.')
+    return redirect('detalhe_vistoria_inteligente',vistoria_id=vistoria_id)
