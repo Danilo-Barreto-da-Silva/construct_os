@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Torre(models.Model):
     nome = models.CharField(max_length=50)
@@ -21,16 +22,17 @@ class Apartamento(models.Model):
 class MedicaoMensal(models.Model):
     STATUS_ISO = [
         ('CONFORME', 'Conforme (ISO 9001 OK)'),
-        ('PENDENTE', 'Pendente de FVS (Trava 90%)'),
+        ('PENDENTE', 'Pendente de FVS'),
         ('NAO_CONFORME', 'Não Conforme (RNC Aberta)'),
     ]
 
     apartamento = models.ForeignKey(Apartamento, related_name='medicoes', on_delete=models.CASCADE)
     mes_referencia = models.CharField(max_length=7, default='2026-11')
     etapa_atual = models.CharField(max_length=100, default='Alvenaria e Instalações')
-    percentual_concluido = models.IntegerField(default=0)
+    percentual_concluido = models.IntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
     requisito_iso = models.CharField(max_length=80, default='ISO 9001 (8.5.1) / FVS-03')
     status_iso = models.CharField(max_length=20, choices=STATUS_ISO, default='PENDENTE')
+    sugestao_ia = models.TextField(blank=True, default='')
     laudo_ia = models.TextField(blank=True, default='Aguardando envio de vídeo para diagnóstico.')
     video_vistoria = models.FileField(upload_to='videos_obra/', null=True, blank=True)
 
@@ -44,9 +46,7 @@ class MedicaoMensal(models.Model):
         return 'blue'
 
     def salvar_com_trava_iso(self):
-        trava_acionada = False
-        if self.percentual_concluido >= 100 and self.status_iso != 'CONFORME':
-            self.percentual_concluido = 90
-            trava_acionada = True
+        """Compatibilidade: qualidade não altera o avanço físico medido."""
+        self.full_clean()
         self.save()
-        return trava_acionada
+        return False
