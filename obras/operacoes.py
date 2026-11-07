@@ -139,7 +139,7 @@ def checklist_fvs(request, medicao_id):
     )
     return render(request, 'obras/fvs_checklist.html', {
         'medicao': medicao,
-        'itens': medicao.itens_fvs.select_related('verificado_por').all(),
+        'itens': medicao.itens_fvs.select_related('verificado_por').prefetch_related('eventos__autor'),
         'form': ItemFVSForm(),
         'pode_aprovar': request.user.is_staff,
     })
