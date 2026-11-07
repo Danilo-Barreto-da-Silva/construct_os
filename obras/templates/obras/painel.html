@@ -30,7 +30,7 @@
         </div>
 
         <div class="flex items-center gap-3 mt-2 sm:mt-0">
-            {% if pode_gerar_demo %}<form method="POST" action="{% url 'popular_dados_demo' %}" onsubmit="return confirm('ATENÇÃO: isso apaga todas as torres, apartamentos e medições deste banco. Continuar?')">
+            {% if pode_gerar_demo %}<form method="POST" action="{% url 'popular_dados_demo' %}" onsubmit="return confirm('Criar dados fictícios neste banco vazio?')">
                 {% csrf_token %}
                 <input type="hidden" name="confirmar_substituicao" value="SIM">
                 <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-2 rounded-lg transition shadow">
@@ -119,7 +119,7 @@
                 <div class="grid grid-cols-3 gap-2 text-center my-2">
                     <div class="bg-emerald-950/40 border border-emerald-500/40 rounded-lg p-2">
                         <span class="text-xl font-black text-emerald-400">{{ unidades_iso_ok }}</span>
-                        <span class="block text-[10px] text-emerald-300">100% ISO OK</span>
+                        <span class="block text-[10px] text-emerald-300">Concluído e FVS conforme</span>
                     </div>
                     <div class="bg-amber-950/40 border border-amber-500/40 rounded-lg p-2">
                         <span class="text-xl font-black text-amber-400">{{ unidades_trava }}</span>
@@ -191,7 +191,7 @@
                 {% else %}
                 <div class="text-center py-12 text-slate-400">
                     <p class="font-bold text-white">Nenhum apartamento cadastrado ainda.</p>
-                    <p class="text-xs mt-1">Clique no botão amarelo <strong>"⚡ Gerar Obra de Teste (2 Torres)"</strong> no topo direito!</p>
+                    <p class="text-xs mt-1">Ainda não há medições para os filtros selecionados.</p>
                 </div>
                 {% endif %}
             </div>
@@ -200,8 +200,9 @@
             <div class="bg-[#11192c] border border-slate-800 rounded-xl p-5 flex flex-col justify-between shadow-lg">
                 <div>
                     <h3 class="text-xs uppercase tracking-wider text-slate-400 font-bold">ANÁLISE DE EVOLUÇÃO DA OBRA</h3>
-                    <p class="text-lg font-bold text-white mt-1">Curva ilustrativa (não representa planejamento real)</p>
+                    <p class="text-lg font-bold text-white mt-1">Evolução física registrada (histórico real)</p>
                     <div id="scurveChart" class="mt-2"></div>
+                    <p class="text-xs text-slate-400">Média simples das medições cadastradas por mês. Uma Curva S planejada exige cronograma físico e pesos dos serviços.</p>
                 </div>
 
                 <div class="bg-[#090e17] border border-slate-800 rounded-lg p-4 mt-4 space-y-2 text-xs">
@@ -296,16 +297,19 @@
             }
         }).render();
 
+        {{ meses_grafico|json_script:"meses-grafico" }}
+        {{ valores_grafico|json_script:"valores-grafico" }}
+        const mesesGrafico = JSON.parse(document.getElementById('meses-grafico').textContent);
+        const valoresGrafico = JSON.parse(document.getElementById('valores-grafico').textContent);
         new ApexCharts(document.querySelector("#scurveChart"), {
             chart: { type: 'line', height: 220, toolbar: { show: false }, background: 'transparent' },
             theme: { mode: 'dark' },
-            stroke: { curve: 'smooth', width: [2, 3], dashArray: [5, 0] },
-            colors: ['#64748b', '#06b6d4'],
-            series: [
-                { name: 'Planejado', data: [10, 22, 38, 52, 65, 78] },
-                { name: 'Realizado (exemplo + mês selecionado)', data: [8, 20, 35, 48, 56, {{ avanco_atual|stringformat:"f" }}] }
-            ],
-            xaxis: { categories: ['Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov'] },
+            stroke: { curve: 'straight', width: 3 },
+            colors: ['#06b6d4'],
+            series: [{ name: 'Avanço registrado (%)', data: valoresGrafico }],
+            xaxis: { categories: mesesGrafico },
+            yaxis: { min: 0, max: 100 },
+            noData: { text: 'Sem medições para o período' },
             grid: { borderColor: '#1e293b' }
         }).render();
 
