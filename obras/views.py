@@ -100,6 +100,7 @@ def painel_principal(request):
     meses_para_terminar = round(falta_construir / ritmo_mensal, 1) if ritmo_mensal is not None and ritmo_mensal > 0 else None
 
     unidades_iso_ok = sum(1 for m in medicoes_mes_atual if m.percentual_concluido == 100 and m.status_iso == 'CONFORME')
+    fvs_conformes = sum(1 for m in medicoes_mes_atual if m.status_iso == 'CONFORME')
     unidades_trava = sum(1 for m in medicoes_mes_atual if m.status_iso == 'PENDENTE')
     unidades_rnc = sum(1 for m in medicoes_mes_atual if m.status_iso == 'NAO_CONFORME')
 
@@ -115,6 +116,16 @@ def painel_principal(request):
     )
     meses_grafico = [item['mes_referencia'] for item in historico_mensal]
     valores_grafico = [round(item['avanco'], 1) for item in historico_mensal]
+    # A amostra pode mudar entre meses. Exibir sua cobertura e não unir
+    # médias de populações diferentes como se fossem uma mesma série contínua.
+    cobertura_grafico = [
+        {
+            'mes': item['mes_referencia'],
+            'quantidade': historico.filter(mes_referencia=item['mes_referencia']).count(),
+            'total': total_unidades,
+        }
+        for item in historico_mensal
+    ]
 
     # Meta só é exibida quando explicitamente cadastrada.
     # Comparação de metas por torre não vale para filtros exclusivos de pavimento.
@@ -175,6 +186,7 @@ def painel_principal(request):
         'torres': torres,
         'meses_grafico': meses_grafico,
         'valores_grafico': valores_grafico,
+        'cobertura_grafico': cobertura_grafico,
         'metas_grafico': metas_grafico,
         'existe_planejamento': any(valor is not None for valor in metas_grafico),
         'rncs_formais_abertas': rncs_formais_abertas,
@@ -196,6 +208,7 @@ def painel_principal(request):
         'falta_construir': falta_construir,
         'meses_para_terminar': meses_para_terminar,
         'unidades_iso_ok': unidades_iso_ok,
+        'fvs_conformes': fvs_conformes,
         'unidades_trava': unidades_trava,
         'unidades_rnc': unidades_rnc,
     }
