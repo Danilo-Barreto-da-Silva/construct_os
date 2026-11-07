@@ -2,6 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 import re
 
 def validar_mes_referencia(value):
@@ -150,6 +151,10 @@ class NaoConformidade(models.Model):
         if self.situacao == 'RESOLVIDA' and not (self.acao_corretiva or '').strip():
             raise ValidationError({'acao_corretiva': 'Informe a ação corretiva antes de encerrar a RNC.'})
 
+    @property
+    def em_atraso(self):
+        return bool(self.prazo and self.situacao != 'RESOLVIDA' and self.prazo < timezone.localdate())
+
     def __str__(self):
         return f'RNC #{self.pk} - {self.titulo}'
 
@@ -201,3 +206,20 @@ class EventoFVS(models.Model):
 
     class Meta:
         ordering = ['-criado_em', '-id']
+
+
+class EventoPlanejamento(models.Model):
+    planejamento = models.ForeignKey(
+        PlanejamentoMensal, related_name='eventos', on_delete=models.PROTECT
+    )
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    registrado_em = models.DateTimeField(auto_now_add=True)
+    percentual_anterior = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    percentual_novo = models.DecimalField(max_digits=5, decimal_places=2)
+
+    class Meta:
+        ordering = ['-registrado_em', '-id']
