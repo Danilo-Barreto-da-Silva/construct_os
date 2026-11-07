@@ -14,10 +14,11 @@ from .curva_s import consolidar_curva
 
 
 def selecionar_filtros(request):
-    meses = list(
-        MedicaoMensal.objects.order_by('-mes_referencia')
-        .values_list('mes_referencia', flat=True).distinct()
-    )
+    # Relatórios aceitam meses oriundos das medições por apartamento OU
+    # dos lançamentos por serviço. Um não deve ocultar o outro.
+    meses_medidos = MedicaoMensal.objects.values_list('mes_referencia', flat=True).distinct()
+    meses_atividades = MarcoServico.objects.values_list('mes_referencia', flat=True).distinct()
+    meses = sorted(set(meses_medidos) | set(meses_atividades), reverse=True)
     mes = request.GET.get('mes', '')
     if mes not in meses:
         mes = meses[0] if meses else ''
