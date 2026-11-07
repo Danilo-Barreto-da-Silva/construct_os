@@ -10,7 +10,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
-from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao
+from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao, NaoConformidade, PlanejamentoMensal
 from .ia_vistoria import analisar_video_obra
 
 def login_sistema(request):
@@ -101,6 +101,42 @@ def painel_principal(request):
     meses_grafico = [item['mes_referencia'] for item in historico_mensal]
     valores_grafico = [round(item['avanco'], 1) for item in historico_mensal]
 
+    # Meta só é exibida quando explicitamente cadastrada.
+    # Comparação de metas por torre não vale para filtros exclusivos de pavimento.
+    metas_query = PlanejamentoMensal.objects.filter(mes_referencia__in=meses_grafico)
+    if torre_selecionada != 'TODAS':
+        metas_query = metas_query.filter(torre_id=int(torre_selecionada))
+    metas_por_mes = {}
+    for meta in metas_query:
+        metas_por_mes.setdefault(meta.mes_referencia, {})[meta.torre_id] = float(meta.percentual_planejado)
+
+    metas_grafico = []
+    if andar_selecionado != 'TODOS':
+        metas_grafico = [None for _ in meses_grafico]
+    elif torre_selecionada != 'TODAS':
+        metas_grafico = [
+            metas_por_mes.get(mes, {}).get(int(torre_selecionada))
+            for mes in meses_grafico
+        ]
+    else:
+        ids_torres = set(torres.values_list('id', flat=True))
+        for mes in meses_grafico:
+            metas_mes = metas_por_mes.get(mes, {})
+            if ids_torres and ids_torres.issubset(metas_mes.keys()):
+                metas_grafico.append(round(
+                    sum(metas_mes[id_torre] for id_torre in ids_torres) / len(ids_torres), 2
+                ))
+            else:
+                metas_grafico.append(None)
+
+    rncs_formais_abertas = NaoConformidade.objects.exclude(
+        situacao='RESOLVIDA'
+    ).count()
+    rncs_sem_formalizacao = MedicaoMensal.objects.filter(
+        mes_referencia=mes_selecionado, status_iso='NAO_CONFORME',
+        rncs__isnull=True,
+    ).count()
+
     resumo_torres = []
     for t in torres:
         meds_t = MedicaoMensal.objects.filter(mes_referencia=mes_selecionado, apartamento__torre=t)
@@ -118,6 +154,10 @@ def painel_principal(request):
         'torres': torres,
         'meses_grafico': meses_grafico,
         'valores_grafico': valores_grafico,
+        'metas_grafico': metas_grafico,
+        'existe_planejamento': any(valor is not None for valor in metas_grafico),
+        'rncs_formais_abertas': rncs_formais_abertas,
+        'rncs_sem_formalizacao': rncs_sem_formalizacao,
         'meses_disponiveis': meses_disponiveis,
         'ia_configurada': settings.GEMINI_API_KEY != 'MODO_SIMULACAO',
         'pode_gerar_demo': request.user.is_superuser and settings.DEBUG and not Torre.objects.exists(),
@@ -158,19 +198,19 @@ def popular_dados_demo(request):
 
                     if final == 6:
                         pct_nov, status_nov, etapa = int(55 * fator), 'NAO_CONFORME', 'Alvenaria (Falha FVS)'
-                        laudo = 'IA detectou falha no encunhamento e ausência de verga na janela.'
+                        laudo = '[EXEMPLO FICTÍCIO] Falha simulada no encunhamento e ausência de verga na janela.'
                     elif final == 5 and andar <= 4:
                         pct_nov, status_nov, etapa = 90, 'PENDENTE', 'Acabamento (Aguardando FVS)'
-                        laudo = 'Serviço físico executado, mas travado em 90% aguardando assinatura da FVS.'
+                        laudo = '[EXEMPLO FICTÍCIO] Execução simulada com FVS pendente; avanço físico independente do aceite.'
                     elif andar <= 2:
                         pct_nov, status_nov, etapa = 100, 'CONFORME', 'Pintura e Acabamento Final'
-                        laudo = 'Apartamento 100% concluído e validado sem pendências na ISO 9001.'
+                        laudo = '[EXEMPLO FICTÍCIO] Registro demonstrativo de serviço concluído e conforme.'
                     elif andar <= 4:
                         pct_nov, status_nov, etapa = int(70 * fator), 'CONFORME', 'Reboco e Contrapiso'
-                        laudo = 'Reboco interno e caixas elétricas 4x2 aprovadas no vídeo.'
+                        laudo = '[EXEMPLO FICTÍCIO] Reboco e caixas elétricas simulados como aprovados.'
                     else:
                         pct_nov, status_nov, etapa = int(45 * fator), 'CONFORME', 'Alvenaria e Tubulação'
-                        laudo = 'Marcação e elevação de alvenaria dentro do prumo.'
+                        laudo = '[EXEMPLO FICTÍCIO] Marcação e elevação de alvenaria simuladas.'
 
                     pct_out = max(0, pct_nov - 12)
 
@@ -214,6 +254,11 @@ def avaliar_apartamento(request, medicao_id):
             messages.error(request, 'Selecione um vídeo antes de solicitar análise.')
         elif video.size > 30 * 1024 * 1024:
             messages.error(request, 'Vídeo excede o limite de 30 MB.')
+        elif not video.name.lower().endswith(('.mp4', '.mov', '.webm')):
+            messages.error(request, 'Formato não permitido. Utilize MP4, MOV ou WebM.')
+        elif video.content_type not in (
+                'video/mp4', 'video/quicktime', 'video/webm', 'application/octet-stream'):
+            messages.error(request, 'O arquivo selecionado não foi identificado como vídeo.')
         elif settings.GEMINI_API_KEY == 'MODO_SIMULACAO':
             messages.error(request, 'Configure GEMINI_API_KEY para analisar vídeos reais.')
         else:
@@ -228,9 +273,9 @@ def avaliar_apartamento(request, medicao_id):
                     temp_path, medicao.apartamento.numero, medicao.requisito_iso
                 )
                 sugestao = (
-                    f"Etapa sugerida: {laudo.etapa_identificada}\\n"
-                    f"Avanço sugerido: {laudo.percentual_sugerido}%\\n"
-                    f"Status sugerido: {laudo.status_iso_sugerido}\\n"
+                    f"Etapa sugerida: {laudo.etapa_identificada}\n"
+                    f"Avanço sugerido: {laudo.percentual_sugerido}%\n"
+                    f"Status sugerido: {laudo.status_iso_sugerido}\n"
                     f"Análise: {laudo.resumo_tecnico}"
                 )
                 with transaction.atomic():
@@ -275,6 +320,11 @@ def avaliar_apartamento(request, medicao_id):
                 raise ValueError('Informe uma etapa com até 100 caracteres.')
             if status == 'CONFORME' and not request.user.is_staff:
                 raise PermissionDenied('Somente um membro autorizado pode registrar FVS conforme.')
+            if status == 'CONFORME' and medicao.rncs.exclude(situacao='RESOLVIDA').exists():
+                raise ValueError('Existem RNCs formais abertas. Trate-as antes de aprovar a FVS.')
+            if status == 'CONFORME' and medicao.itens_fvs.exclude(
+                    resultado__in=['CONFORME', 'NA']).exists():
+                raise ValueError('Existem itens de FVS não aprovados ou não verificados.')
 
             with transaction.atomic():
                 medicao = MedicaoMensal.objects.select_for_update().get(pk=medicao_id)
