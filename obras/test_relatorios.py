@@ -184,3 +184,35 @@ class RelatoriosTests(TestCase):
         self.assertIsNone(painel.context['meses_para_terminar'])
         self.assertEqual(painel.context['metas_grafico'][-1], None)
         self.assertContains(painel, 'Cobertura incompleta')
+
+    def test_fvs_conforme_com_zero_execucao_aparece_no_contador_de_qualidade(self):
+        """Aprovar FVS não implica concluir fisicamente a medição."""
+        self.medicao.status_iso = 'CONFORME'
+        self.medicao.percentual_concluido = 0
+        self.medicao.save(update_fields=['status_iso', 'percentual_concluido'])
+        self.client.force_login(self.staff)
+        painel = self.client.get(reverse('painel_principal'), {'mes': '2026-11'})
+        self.assertEqual(painel.status_code, 200)
+        self.assertEqual(painel.context['fvs_conformes'], 1)
+        self.assertEqual(painel.context['unidades_iso_ok'], 0)
+        self.assertContains(painel, 'FVS conforme')
+        self.assertContains(painel, 'Concluídas fisicamente (100%)')
+
+    def test_historico_informa_cobertura_de_cada_mes(self):
+        """Uma medição isolada não deve se confundir com o avanço da obra toda."""
+        from .models import Torre
+        torre_nova = Torre.objects.create(nome='Torre de dezembro', total_andares=1)
+        apto_novo = Apartamento.objects.create(torre=torre_nova, andar=1, numero='101')
+        MedicaoMensal.objects.create(
+            apartamento=apto_novo, mes_referencia='2026-12',
+            percentual_concluido=0, status_iso='CONFORME',
+        )
+        self.client.force_login(self.staff)
+        painel = self.client.get(reverse('painel_principal'), {'mes': '2026-12'})
+        amostras = {x['mes']: x for x in painel.context['cobertura_grafico']}
+        self.assertEqual(amostras['2026-11']['quantidade'], 1)
+        self.assertEqual(amostras['2026-12']['quantidade'], 1)
+        self.assertEqual(amostras['2026-12']['total'], 2)
+        self.assertFalse(painel.context['cobertura_completa'])
+        self.assertContains(painel, '2026-12: 1 de 2 unidades')
+        self.assertContains(painel, 'Os pontos não são ligados')
