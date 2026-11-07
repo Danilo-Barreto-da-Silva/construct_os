@@ -46,7 +46,17 @@ def planejamento_fisico(request):
                         reverse('planejamento_fisico') + f'?torre={servico.torre_id}'
                     )
         elif acao == 'marco':
-            marco_form = MarcoServicoForm(request.POST, torre=torre)
+            servico_id = request.POST.get('servico', '')
+            mes_postado = request.POST.get('mes_referencia', '')
+            existente = None
+            if servico_id.isdecimal() and len(mes_postado) == 7:
+                existente = MarcoServico.objects.filter(
+                    servico_id=int(servico_id), mes_referencia=mes_postado,
+                    servico__torre=torre,
+                ).first()
+            # Uma revisão deve validar contra a instância existente para
+            # não disparar incorretamente a restrição única de serviço/mês.
+            marco_form = MarcoServicoForm(request.POST, instance=existente, torre=torre)
             if marco_form.is_valid():
                 dados = marco_form.cleaned_data
                 try:
