@@ -9,9 +9,10 @@ Protótipo acadêmico de gestão de obras em **Django**, com medições mensais,
 - **Painel:** avanço físico médio, torres, matriz de unidades, filtros de mês/torre/andar e histórico mensal baseado nas medições existentes. Indica quantas unidades possuem medição no mês; não projeta prazo nem compara metas quando a cobertura é incompleta.
 - **Qualidade / FVS:** checklist por apartamento e mês, resultado e observação de cada inspeção, autor e histórico. Apenas `is_staff` pode marcar itens conformes e aprovar a FVS global. Itens pendentes e RNCs formais não resolvidas impedem a aprovação.
 - **RNC:** criação vinculada à medição, prioridade, prazo e alerta de atraso, atribuição, ação corretiva, transição entre Aberta/Em tratamento/Resolvida e histórico de movimentações. Encerrar uma RNC **não** aprova a FVS automaticamente.
-- **Planejamento:** metas mensais acumuladas por torre, inseridas manualmente e auditadas (valor anterior, novo, autor e data). O painel compara meta versus realizado apenas com cobertura suficiente; sem metas, não inventa valores.
+- **Metas simples:** metas mensais acumuladas por torre, inseridas manualmente e auditadas (valor anterior, novo, autor e data). O painel só compara grupos equivalentes e não inventa valores.
+- **Curva S ponderada por serviços:** novo módulo em `/planejamento/fisico/`. Cada serviço possui peso, meta e avanço físico acumulado por mês. A curva só calcula se os pesos somarem **100%** e houver todos os lançamentos; caso contrário, informa cobertura incompleta. Inclui histórico de alterações, correção auditada de pesos antes do primeiro lançamento, integração com o painel filtrado por torre e exportação CSV.
 - **Cadastros:** inclusão de torres, apartamentos e uma medição por apartamento/mês. Novas medições entram com FVS pendente. **Não há exclusão por essas telas.**
-- **Relatórios:** resumo mensal por torre e exportação CSV de medições e RNCs (somente equipe autorizada). O CSV possui mitigação contra fórmulas maliciosas.
+- **Relatórios:** resumo mensal por torre, comparação ponderada (quando completa) e exportação CSV de medições, RNCs e serviços (somente equipe autorizada). O CSV possui mitigação contra fórmulas maliciosas.
 - **IA opcional:** Gemini recebe vídeo apenas quando a chave é configurada; o resultado fica como sugestão e não altera automaticamente as medições nem libera a FVS.
 - **Testes:** verificação do Django, consistência de migrações, testes de permissões e de fluxos administrativos por GitHub Actions.
 
@@ -50,8 +51,8 @@ Acesse `/login/`. Crie o administrador com `python manage.py createsuperuser`, s
 3. **Checklist FVS:** no modal de vistoria, clique em *Checklist FVS* para registrar itens verificáveis. Mudanças após uma aprovação tornam a FVS pendente novamente.
 4. **RNC:** para registrar uma falha formal, use *Registrar RNC*. Abertura mantém o percentual físico e sinaliza FVS não conforme. Trate, atribua e encerre a RNC na página de detalhes.
 5. **Aprovação:** para declarar FVS conforme, use uma conta `is_staff`, após tratar RNCs formais e eventuais itens pendentes. Consulte a autoria no histórico.
-6. **Planejamento:** registre metas físicas acumuladas por torre/mês. O gráfico usa dados reais e oculta metas ausentes. **Não é ainda uma Curva S físico-financeira ponderada por serviços.**
-7. **Relatórios:** equipe autorizada consulta totais por mês e exporta dados em CSV. Os registros de exemplo não devem ser interpretados como dados reais de obra.
+6. **Planejamento:** o módulo de metas simples continua disponível, mas é separado da nova **Curva S por serviços**. Cadastre os serviços de uma torre com peso físico total de 100%, depois os valores previstos e executados acumulados em cada mês. O gráfico próprio é ponderado por atividade; ainda **não** é uma Curva S financeira, EVM ou um cronograma contratual.
+7. **Relatórios:** equipe autorizada consulta totais por mês e exporta dados em CSV, inclusive o progresso dos serviços. Os registros de exemplo não devem ser interpretados como dados reais de obra.
 
 ## Segurança e dados
 
@@ -66,6 +67,6 @@ Acesse `/login/`. Crie o administrador com `python manage.py createsuperuser`, s
 
 ## Testes e referências
 
-Para validação funcional da nova etapa, veja [Roteiro de testes](docs/roteiro_testes.md).
+Para validar o fluxo de FVS/RNC, veja [Roteiro de testes](docs/roteiro_testes.md). Para os pesos, exemplos de atividades e cálculos da nova Curva S, consulte o [Guia de planejamento ponderado](docs/curva_s_fisica.md).
 
 A workflow `.github/workflows/django-checks.yml` roda `manage.py check`, `makemigrations --check --dry-run` e `manage.py test` nas alterações da branch e nas pull requests. A execução no seu Codespaces é importante para confirmar o banco e as páginas locais.
