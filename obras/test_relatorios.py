@@ -1,5 +1,6 @@
 """Testes dos relatórios, exportações e proteções operacionais."""
 from unittest.mock import patch
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -216,3 +217,13 @@ class RelatoriosTests(TestCase):
         self.assertFalse(painel.context['cobertura_completa'])
         self.assertContains(painel, '2026-12: 1 de 2 unidades')
         self.assertContains(painel, 'Os pontos não são ligados')
+
+    def test_relatorio_permite_filtrar_mes_com_apenas_meta_simples(self):
+        PlanejamentoMensal.objects.create(
+            torre=self.torre, mes_referencia='2027-01', percentual_planejado=Decimal('15'),
+        )
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse('relatorios'), {'mes': '2027-01'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['mes'], '2027-01')
+        self.assertEqual(resp.context['totais']['quantidade'], 0)
