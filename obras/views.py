@@ -9,8 +9,6 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
-from datetime import date
-from calendar import monthrange
 from .models import Torre, Apartamento, MedicaoMensal
 from .ia_vistoria import analisar_video_obra
 
@@ -59,10 +57,14 @@ def painel_principal(request):
         mes_anterior = ''
     medicoes_mes_anterior = MedicaoMensal.objects.filter(mes_referencia=mes_anterior).select_related('apartamento__torre')
 
+    if torre_selecionada != 'TODAS' and not torre_selecionada.isdecimal():
+        torre_selecionada = 'TODAS'
+
     if torre_selecionada != 'TODAS':
         medicoes_mes_atual = medicoes_mes_atual.filter(apartamento__torre__id=torre_selecionada)
         medicoes_mes_anterior = medicoes_mes_anterior.filter(apartamento__torre__id=torre_selecionada)
 
+    andar_num = None
     if andar_selecionado != 'TODOS':
         try:
             andar_num = int(andar_selecionado)
@@ -81,9 +83,22 @@ def painel_principal(request):
     falta_construir = max(0.0, round(100.0 - avanco_atual, 1))
     meses_para_terminar = round(falta_construir / ritmo_mensal, 1) if ritmo_mensal is not None and ritmo_mensal > 0 else None
 
-    unidades_iso_ok = sum(1 for m in medicoes_mes_atual if m.cor_status() == 'green')
-    unidades_trava = sum(1 for m in medicoes_mes_atual if m.cor_status() == 'yellow')
-    unidades_rnc = sum(1 for m in medicoes_mes_atual if m.cor_status() == 'red')
+    unidades_iso_ok = sum(1 for m in medicoes_mes_atual if m.percentual_concluido == 100 and m.status_iso == 'CONFORME')
+    unidades_trava = sum(1 for m in medicoes_mes_atual if m.status_iso == 'PENDENTE')
+    unidades_rnc = sum(1 for m in medicoes_mes_atual if m.status_iso == 'NAO_CONFORME')
+
+    # Série histórica: somente medições efetivamente cadastradas, sem pontos inventados.
+    historico = MedicaoMensal.objects.filter(mes_referencia__lte=mes_selecionado)
+    if torre_selecionada != 'TODAS':
+        historico = historico.filter(apartamento__torre_id=int(torre_selecionada))
+    if andar_selecionado != 'TODOS' and andar_num is not None:
+        historico = historico.filter(apartamento__andar=andar_num)
+    from django.db.models import Avg
+    historico_mensal = list(
+        historico.values('mes_referencia').annotate(avanco=Avg('percentual_concluido')).order_by('mes_referencia')
+    )
+    meses_grafico = [item['mes_referencia'] for item in historico_mensal]
+    valores_grafico = [round(item['avanco'], 1) for item in historico_mensal]
 
     resumo_torres = []
     for t in torres:
@@ -100,9 +115,11 @@ def painel_principal(request):
 
     context = {
         'torres': torres,
+        'meses_grafico': meses_grafico,
+        'valores_grafico': valores_grafico,
         'meses_disponiveis': meses_disponiveis,
         'ia_configurada': settings.GEMINI_API_KEY != 'MODO_SIMULACAO',
-        'pode_gerar_demo': request.user.is_superuser and settings.DEBUG,
+        'pode_gerar_demo': request.user.is_superuser and settings.DEBUG and not Torre.objects.exists(),
         'resumo_torres': resumo_torres,
         'matriz_andares': matriz_andares,
         'mes_selecionado': mes_selecionado,
