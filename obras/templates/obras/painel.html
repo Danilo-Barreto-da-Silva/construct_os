@@ -183,7 +183,11 @@
                                 {% else %}pill-blue text-sky-300{% endif %}"
                                 title="{{ m.apartamento.torre.nome }} - Apto {{ m.apartamento.numero }}">
                                 <span>{% if torre_selecionada == 'TODAS' %}{{ m.apartamento.torre.nome|slice:"6:7" }}-{% endif %}{{ m.apartamento.numero }}</span>
-                                <span class="text-[10px] opacity-90">{{ m.percentual_concluido }}%</span>
+                                <span class="flex items-center gap-1 text-[10px] opacity-95">
+                                    <span class="inline-block w-2 h-2 rounded-full {% if m.status_iso == 'CONFORME' %}bg-emerald-400{% elif m.status_iso == 'PENDENTE' %}bg-amber-400{% else %}bg-rose-400{% endif %}"
+                                          title="Situação da FVS: {{ m.get_status_iso_display }}" aria-label="FVS: {{ m.get_status_iso_display }}"></span>
+                                    {{ m.percentual_concluido }}%
+                                </span>
                             </button>
                             {% endfor %}
                         </div>
@@ -196,6 +200,7 @@
                     <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Em Execução (Azul)</span>
                     <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> FVS pendente (Amarelo)</span>
                     <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Não conforme na FVS (Vermelho)</span>
+                    <span class="basis-full text-center text-[11px]">A bolinha junto ao percentual mostra separadamente a FVS: verde = conforme, amarelo = pendente, vermelho = não conforme.</span>
                 </div>
                 {% else %}
                 <div class="text-center py-12 text-slate-400">
@@ -225,6 +230,49 @@
             </div>
         </div>
     </div>
+
+    {% if curva_servicos %}
+    <section class="bg-[#11192c] border border-slate-800 rounded-xl p-5 shadow-lg space-y-3" aria-label="Curva S ponderada da torre">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="text-xs uppercase tracking-wider text-emerald-400 font-bold">NOVO · PLANEJAMENTO PONDERADO POR SERVIÇOS</p>
+                <h3 class="text-lg font-bold text-white">Curva S física da torre selecionada</h3>
+                <p class="text-xs text-slate-400 mt-1">Indicador separado da média dos apartamentos. O peso dos serviços precisa somar 100%, com lançamentos para cada mês.</p>
+            </div>
+            <a href="{% url 'planejamento_fisico' %}?torre={{ torre_selecionada }}" class="bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 rounded-lg px-4 py-2 text-xs font-bold hover:bg-emerald-500/20">Abrir planejamento completo</a>
+        </div>
+        <div class="text-sm {% if curva_servicos.pesos_ok %}text-emerald-300{% else %}text-amber-300{% endif %}">
+            Peso cadastrado: <strong>{{ curva_servicos.peso_total }}%</strong> / 100%
+            {% if not curva_servicos.pesos_ok %}— curva indisponível até completar a estrutura de pesos.{% endif %}
+        </div>
+        {% if curva_servicos.meses %}
+        <div id="curvaServicosPainel" class="min-h-[240px]"></div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-400">
+          {% for linha in curva_servicos.linhas %}
+            <span>{{ linha.mes }}: previsto {{ linha.n_previsto }}/{{ linha.n_servicos }} serviços · executado {{ linha.n_realizado }}/{{ linha.n_servicos }}</span>
+          {% endfor %}
+        </div>
+        {{ curva_servicos.meses|json_script:"curva-servicos-meses" }}
+        {{ curva_servicos.previstos|json_script:"curva-servicos-previstos" }}
+        {{ curva_servicos.realizados|json_script:"curva-servicos-realizados" }}
+        <script>
+          new ApexCharts(document.querySelector('#curvaServicosPainel'), {
+            chart: { type: 'line', height: 250, background: 'transparent', toolbar: {show:false} },
+            theme: {mode:'dark'}, colors: ['#94a3b8','#22d3ee'],
+            series: [
+              {name:'Planejado por serviços (%)', data: JSON.parse(document.getElementById('curva-servicos-previstos').textContent)},
+              {name:'Executado por serviços (%)', data: JSON.parse(document.getElementById('curva-servicos-realizados').textContent)}
+            ],
+            stroke: {curve:'straight',width:3}, markers:{size:5},
+            xaxis:{categories: JSON.parse(document.getElementById('curva-servicos-meses').textContent)},
+            yaxis:{min:0,max:100},grid:{borderColor:'#243247'}
+          }).render();
+        </script>
+        {% else %}
+        <p class="text-slate-400 text-sm">Ainda não existem lançamentos mensais de serviços nesta torre.</p>
+        {% endif %}
+    </section>
+    {% endif %}
 
     <!-- MODAL DE VISTORIA POR IA & FVS ISO 9001 -->
     <div id="modalApto" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
