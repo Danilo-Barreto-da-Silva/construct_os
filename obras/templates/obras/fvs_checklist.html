@@ -47,6 +47,18 @@
         </form>
       </details>
       {% endif %}
+      <details class="border-t border-slate-800 pt-2">
+        <summary class="text-xs text-slate-400 hover:text-cyan-300 cursor-pointer">Histórico de verificações deste item</summary>
+        <div class="space-y-3 mt-3">
+          {% for evento in item.eventos.all %}
+          <div class="border-l-2 border-slate-600 pl-3 text-xs">
+            <p class="font-semibold text-slate-200">{{ evento.resultado_anterior|default:"Novo item" }} → {{ evento.resultado_novo }}</p>
+            <p class="text-slate-400 mt-1">{{ evento.criado_em|date:"d/m/Y H:i" }} · {% if evento.autor %}{{ evento.autor.get_username }}{% else %}Usuário excluído{% endif %}</p>
+            <p class="mt-2 whitespace-pre-line break-words">{{ evento.observacao }}</p>
+          </div>
+          {% empty %}<p class="text-xs text-slate-400">Sem eventos registrados.</p>{% endfor %}
+        </div>
+      </details>
     </article>
     {% empty %}
     <p class="text-sm text-slate-400 py-6">Nenhum item foi verificado nesta medição. Adicione o primeiro item abaixo.</p>
