@@ -148,6 +148,8 @@ def checklist_fvs(request, medicao_id):
 @login_required(login_url='login_sistema')
 @require_POST
 def salvar_item_fvs_view(request, medicao_id, item_id=None):
+    if item_id is not None and not request.user.is_staff:
+        raise PermissionDenied('Somente equipe autorizada pode alterar um item já registrado.')
     medicao = get_object_or_404(MedicaoMensal, pk=medicao_id)
     instance = (
         get_object_or_404(ItemFVS, pk=item_id, medicao=medicao)
