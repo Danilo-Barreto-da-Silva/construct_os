@@ -22,7 +22,7 @@ from .forms_inteligentes import (
 from .models import (
     TipologiaUnidade, AmbienteTipologia, ServicoTipologia, CriterioVistoria,
     UnidadeInteligente, PesoServicoUnidade, DocumentoProjeto, ItemEsperadoProjeto,
-    VistoriaInteligente, SugestaoEtapaIA, Apartamento,
+    VistoriaInteligente, SugestaoEtapaIA, EventoMedicaoCriterio, Apartamento,
 )
 from .parametros import progresso_unidade, validar_medicao
 
@@ -161,6 +161,12 @@ def unidade_inteligente(request, apartamento_id):
         'formulario_peso':formulario_peso,'pode_editar':request.user.is_staff,
         'vistorias':cfg.apartamento.vistorias_inteligentes.select_related('enviado_por')[:20],
         'video_form':VideoVistoriaForm(),
+        'historico_medicoes':EventoMedicaoCriterio.objects.filter(
+            medicao__apartamento=cfg.apartamento,
+            medicao__mes_referencia__lte=mes,
+        ).select_related('medicao__criterio__servico','autor').order_by(
+            '-registrado_em','-id'
+        )[:50],
     })
 
 
