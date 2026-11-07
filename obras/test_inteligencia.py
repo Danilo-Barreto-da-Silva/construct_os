@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse, resolve, Resolver404
@@ -337,3 +339,46 @@ class InteligenciaTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             novo.full_clean()
+
+    def test_comando_tipologia_piloto_gera_somente_dados_ficticios(self):
+        nova_torre=Torre.objects.create(nome='Nova torre piloto IA',total_andares=2)
+        novo_apto=Apartamento.objects.create(torre=nova_torre,andar=1,numero='201')
+        legado=MedicaoMensal.objects.create(
+            apartamento=novo_apto,mes_referencia='2026-11',
+            percentual_concluido=33,status_iso='PENDENTE'
+        )
+        call_command(
+            'criar_tipologia_piloto',torre_id=nova_torre.pk,apto_id=novo_apto.pk,
+            confirmar_demo=True,verbosity=0
+        )
+        criado=UnidadeInteligente.objects.get(apartamento=novo_apto)
+        self.assertEqual(criado.tipologia.codigo,'PILOTO-IA')
+        self.assertEqual(
+            sum(ServicoTipologia.objects.filter(tipologia=criado.tipologia)
+                .values_list('peso',flat=True)),Decimal('100')
+        )
+        self.assertEqual(
+            CriterioVistoria.objects.filter(servico__tipologia=criado.tipologia).count(),
+            16
+        )
+        self.assertIsNone(progresso_unidade(criado,'2026-11')['percentual'])
+        legado.refresh_from_db()
+        self.assertEqual(legado.percentual_concluido,33)
+        self.assertEqual(legado.status_iso,'PENDENTE')
+        with self.assertRaises(CommandError):
+            call_command(
+                'criar_tipologia_piloto',torre_id=nova_torre.pk,apto_id=novo_apto.pk,
+                confirmar_demo=True,verbosity=0
+            )
+
+    def test_etiquetas_qr_imprimiveis_restritas_a_gestor(self):
+        url=reverse('etiquetas_tipologia',args=[self.tipo.pk])
+        self.assertEqual(self.client.get(url).status_code,302)
+        self.client.force_login(self.operario)
+        self.assertEqual(self.client.get(url).status_code,403)
+        self.client.force_login(self.gestor)
+        resp=self.client.get(url)
+        self.assertEqual(resp.status_code,200)
+        self.assertContains(resp,'Apartamento 101')
+        self.assertContains(resp,'window.print()')
+        self.assertContains(resp,'imagem_qr')
