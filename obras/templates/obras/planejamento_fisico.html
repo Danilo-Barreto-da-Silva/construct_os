@@ -1,0 +1,179 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}Curva S ponderada por serviços{% endblock %}
+{% block content %}
+<div class="flex flex-wrap gap-4 justify-between items-start">
+  <div>
+    <p class="text-cyan-400 uppercase tracking-widest text-xs font-semibold">Planejamento por serviços</p>
+    <h1 class="text-3xl font-black mt-1">Curva S física ponderada</h1>
+    <p class="text-slate-400 text-sm mt-2 max-w-3xl">Cada atividade possui um peso na torre. Informe o avanço <strong>acumulado</strong> previsto e executado ao final de cada mês. Este controle não altera automaticamente as medições por apartamento nem os registros de FVS.</p>
+  </div>
+  <a href="{% url 'planejamento' %}" class="btn btn-muted">Metas simples por torre</a>
+</div>
+<form method="get" class="panel p-4 flex flex-wrap items-end gap-3">
+  <div class="flex-1 min-w-[220px]">
+    <label for="torre" class="block mb-1">Torre do planejamento</label>
+    <select name="torre" id="torre" class="w-full bg-[#090e17] text-white rounded-lg px-3 py-2 border border-slate-700">
+      {% for t in torres %}
+      <option value="{{ t.pk }}" {% if torre.pk == t.pk %}selected{% endif %}>{{ t.nome }}</option>
+      {% empty %}
+      <option>Nenhuma torre cadastrada</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button class="btn btn-primary" type="submit">Visualizar torre</button>
+</form>
+
+{% if torre %}
+<div class="grid sm:grid-cols-3 gap-3">
+  <section class="panel p-5">
+    <p class="text-xs uppercase text-slate-400">Peso cadastrado</p>
+    <p class="text-2xl font-black mt-2 {% if curva.pesos_ok %}text-emerald-400{% else %}text-amber-400{% endif %}">{{ curva.peso_total }} / 100%</p>
+    <p class="text-xs text-slate-400 mt-1">{% if curva.pesos_ok %}Estrutura de pesos completa.{% else %}Cadastre os serviços restantes até somar exatamente 100%.{% endif %}</p>
+  </section>
+  <section class="panel p-5">
+    <p class="text-xs uppercase text-slate-400">Serviços cadastrados</p>
+    <p class="text-2xl font-black mt-2 text-white">{{ curva.servicos|length }}</p>
+    <p class="text-xs text-slate-400 mt-1">Pesos são fixados após o primeiro lançamento mensal.</p>
+  </section>
+  <section class="panel p-5">
+    <p class="text-xs uppercase text-slate-400">Último mês totalmente comparável</p>
+    {% if curva.ultima_linha_completa %}
+    <p class="text-lg font-bold mt-2 text-cyan-300">{{ curva.ultima_linha_completa.mes }}</p>
+    <p class="text-xs text-slate-300 mt-1">Previsto {{ curva.ultima_linha_completa.previsto }}% · Executado {{ curva.ultima_linha_completa.realizado }}%</p>
+    <p class="text-xs {% if curva.ultima_linha_completa.desvio < 0 %}text-rose-300{% else %}text-emerald-300{% endif %} mt-1">Desvio: {{ curva.ultima_linha_completa.desvio }} p.p.</p>
+    {% else %}
+    <p class="text-lg font-semibold mt-2 text-slate-300">Indisponível</p>
+    <p class="text-xs text-slate-400 mt-1">Exige pesos de 100% e previsto + executado de todos os serviços no mesmo mês.</p>
+    {% endif %}
+  </section>
+</div>
+<div class="grid lg:grid-cols-2 gap-5">
+  {% if pode_editar %}
+  <section class="panel p-5">
+    <h2 class="text-xl font-bold mb-2">1. Cadastrar serviço</h2>
+    <p class="text-sm text-slate-400 mb-4">Ex.: EST-01, Estrutura de concreto, peso 30%. A soma dos pesos da torre não pode ultrapassar 100%.</p>
+    <form method="post" action="{% url 'planejamento_fisico' %}?torre={{ torre.pk }}">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="servico">
+      {{ servico_form.as_p }}
+      <button class="btn btn-primary" type="submit">Adicionar serviço</button>
+    </form>
+  </section>
+  <section class="panel p-5">
+    <h2 class="text-xl font-bold mb-2">2. Registrar mês do serviço</h2>
+    <p class="text-sm text-slate-400 mb-4">Informe o percentual <strong>acumulado da atividade</strong>, não sua contribuição ponderada. Ex.: atividade com peso 30% e 50% executado contribui 15 p.p. para a torre. Campos em branco preservam o lançamento anterior.</p>
+    <form method="post" action="{% url 'planejamento_fisico' %}?torre={{ torre.pk }}">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="marco">
+      {{ marco_form.as_p }}
+      <button class="btn btn-primary" type="submit" {% if not curva.servicos %}disabled{% endif %}>Salvar previsto / executado</button>
+    </form>
+  </section>
+  {% else %}
+  <section class="panel p-5 lg:col-span-2">
+    <p class="text-amber-300">Apenas equipe autorizada pode cadastrar serviços e lançar progresso. Você pode consultar as informações.</p>
+  </section>
+  {% endif %}
+</div>
+
+<section class="panel p-5 space-y-3">
+  <h2 class="text-xl font-bold">Curva S calculada da torre {{ torre.nome }}</h2>
+  <p class="text-xs text-slate-400">Avanço físico da torre = soma de (peso do serviço × percentual acumulado do serviço / 100). A curva não utiliza os percentuais médios dos apartamentos. Meses com lançamentos faltantes permanecem sem indicador.</p>
+  {% if curva.meses %}
+  <div id="curvaPonderada" class="min-h-[280px]" role="img" aria-label="Gráfico de progresso planejado e realizado ponderado por serviços"></div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-sm">
+      <thead class="text-xs uppercase text-slate-400 border-b border-slate-700">
+        <tr><th class="p-3">Mês</th><th class="p-3">Previsto ponderado</th><th class="p-3">Executado ponderado</th><th class="p-3">Desvio</th><th class="p-3">Cobertura</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+      {% for linha in curva.linhas %}
+        <tr>
+          <td class="p-3">{{ linha.mes }}</td>
+          <td class="p-3">{% if linha.previsto != None %}{{ linha.previsto }}%{% else %}<span class="text-amber-300">Incompleto</span>{% endif %}</td>
+          <td class="p-3">{% if linha.realizado != None %}{{ linha.realizado }}%{% else %}<span class="text-amber-300">Incompleto</span>{% endif %}</td>
+          <td class="p-3">{% if linha.desvio != None %}{{ linha.desvio }} p.p.{% else %}—{% endif %}</td>
+          <td class="p-3 text-xs text-slate-400">Prev. {{ linha.n_previsto }}/{{ linha.n_servicos }} · Exec. {{ linha.n_realizado }}/{{ linha.n_servicos }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ curva.meses|json_script:"curva-meses" }}
+  {{ curva.previstos|json_script:"curva-previstos" }}
+  {{ curva.realizados|json_script:"curva-realizados" }}
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script>
+  if (typeof ApexCharts !== 'undefined') {
+      const meses = JSON.parse(document.getElementById('curva-meses').textContent);
+      const previstos = JSON.parse(document.getElementById('curva-previstos').textContent);
+      const realizados = JSON.parse(document.getElementById('curva-realizados').textContent);
+      new ApexCharts(document.querySelector('#curvaPonderada'), {
+          chart: {type:'line',height:285,background:'transparent',toolbar:{show:false}},
+          theme:{mode:'dark'}, colors:['#94a3b8','#22d3ee'],
+          stroke:{curve:'straight',width:3},
+          markers:{size:5},
+          series:[{name:'Planejado ponderado',data:previstos},{name:'Executado ponderado',data:realizados}],
+          xaxis:{categories:meses},yaxis:{min:0,max:100,decimalsInFloat:1},
+          noData:{text:'Sem dados completos para comparar'},
+          grid:{borderColor:'#253348'}, tooltip:{shared:true,intersect:false}
+      }).render();
+  }
+  </script>
+  {% else %}
+  <p class="text-slate-400 py-10 text-center">Nenhum serviço com lançamento mensal nesta torre. O gráfico ficará disponível após o cadastro de dados.</p>
+  {% endif %}
+</section>
+
+<div class="grid lg:grid-cols-2 gap-5">
+  <section class="panel p-5 overflow-x-auto">
+    <h2 class="font-bold text-lg mb-3">Serviços e pesos físicos</h2>
+    <table class="text-sm w-full text-left">
+      <thead class="text-xs text-slate-400 uppercase border-b border-slate-700">
+        <tr><th class="p-2">Código</th><th class="p-2">Descrição</th><th class="p-2 text-right">Peso</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+      {% for servico in curva.servicos %}
+        <tr><td class="p-2 font-mono text-cyan-300">{{ servico.codigo }}</td><td class="p-2">{{ servico.descricao }}</td><td class="p-2 text-right font-bold">{{ servico.peso_percentual }}%</td></tr>
+      {% empty %}
+        <tr><td colspan="3" class="p-3 text-slate-400">Ainda não há serviços cadastrados para esta torre.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="panel p-5 overflow-x-auto">
+    <h2 class="font-bold text-lg mb-3">Últimos lançamentos</h2>
+    <table class="text-xs w-full text-left">
+      <thead class="text-slate-400 uppercase border-b border-slate-700">
+        <tr><th class="p-2">Mês</th><th class="p-2">Serviço</th><th class="p-2">Prev.</th><th class="p-2">Exec.</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+      {% for marco in marcos %}
+        <tr><td class="p-2">{{ marco.mes_referencia }}</td><td class="p-2">{{ marco.servico.codigo }}</td><td class="p-2">{% if marco.previsto_acumulado != None %}{{ marco.previsto_acumulado }}%{% else %}—{% endif %}</td><td class="p-2">{% if marco.realizado_acumulado != None %}{{ marco.realizado_acumulado }}%{% else %}—{% endif %}</td></tr>
+      {% empty %}
+        <tr><td colspan="4" class="p-3 text-slate-400">Sem lançamentos para esta torre.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+<section class="panel p-5">
+  <h2 class="font-bold text-lg mb-3">Histórico recente de revisões</h2>
+  <div class="space-y-2 max-h-72 overflow-y-auto">
+    {% for evento in eventos %}
+    <div class="border-l-2 border-cyan-500 bg-[#090e17] rounded-r-lg p-3 text-xs">
+      <p class="font-semibold text-white">{{ evento.marco.mes_referencia }} · {{ evento.marco.servico.codigo }} · {% if evento.autor %}{{ evento.autor.get_username }}{% else %}Usuário excluído{% endif %}</p>
+      <p class="text-slate-400">{{ evento.criado_em|date:"d/m/Y H:i:s" }}</p>
+      <p class="mt-2">Planejado: {{ evento.previsto_anterior|default_if_none:"—" }} → {{ evento.previsto_novo|default_if_none:"—" }} · Executado: {{ evento.realizado_anterior|default_if_none:"—" }} → {{ evento.realizado_novo|default_if_none:"—" }}</p>
+      {% if evento.observacao %}<p class="text-slate-300 mt-1 whitespace-pre-line">{{ evento.observacao }}</p>{% endif %}
+    </div>
+    {% empty %}
+    <p class="text-slate-400 text-sm">Nenhuma alteração registrada ainda.</p>
+    {% endfor %}
+  </div>
+</section>
+<p class="text-xs text-slate-500">Modelo experimental de controle físico. Pesos devem ser definidos com base no escopo técnico da obra. Não equivale a cronograma contratual, Curva S financeira, orçamento ou certificação de engenharia.</p>
+{% else %}
+<section class="panel p-6 text-center text-slate-400">Cadastre primeiro uma torre em <a href="{% url 'cadastros' %}" class="text-cyan-300 underline">Cadastros</a>, usando uma conta autorizada.</section>
+{% endif %}
+{% endblock %}
