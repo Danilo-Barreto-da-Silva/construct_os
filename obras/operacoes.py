@@ -4,13 +4,15 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.db import transaction
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .forms import AbrirRNCForm, TratarRNCForm, ItemFVSForm, PlanejamentoMensalForm
+from .forms import AbrirRNCForm, TratarRNCForm, ItemFVSForm, PlanejamentoMensalForm, TorreForm, ApartamentoForm, MedicaoMensalForm
 from .models import (
     MedicaoMensal, NaoConformidade, ItemFVS,
-    PlanejamentoMensal, Torre,
+    PlanejamentoMensal, Torre, Apartamento, HistoricoMedicao,
 )
 from .qualidade import abrir_rnc, atualizar_rnc, salvar_item_fvs
 
@@ -204,3 +206,61 @@ def planejamento(request):
     return render(request, 'obras/planejamento.html', {
         'form': form, 'metas': metas, 'pode_editar': request.user.is_staff
     })
+
+
+@login_required(login_url='login_sistema')
+def cadastros(request):
+    """Cadastro aditivo, sem exclusão de dados e sem gerar obras fictícias."""
+    if not request.user.is_staff:
+        raise PermissionDenied('Cadastros de obras exigem conta autorizada.')
+    torre_form = TorreForm()
+    apartamento_form = ApartamentoForm()
+    medicao_form = MedicaoMensalForm(
+        initial={'mes_referencia': timezone.localdate().strftime('%Y-%m')}
+    )
+    if request.method == 'POST':
+        acao = request.POST.get('acao')
+        if acao == 'torre':
+            torre_form = TorreForm(request.POST)
+            if torre_form.is_valid():
+                torre = torre_form.save()
+                messages.success(request, f'Torre {torre.nome} cadastrada.')
+                return redirect('cadastros')
+        elif acao == 'apartamento':
+            apartamento_form = ApartamentoForm(request.POST)
+            if apartamento_form.is_valid():
+                apartamento = apartamento_form.save()
+                messages.success(request, f'Apartamento {apartamento.numero} cadastrado.')
+                return redirect('cadastros')
+        elif acao == 'medicao':
+            medicao_form = MedicaoMensalForm(request.POST)
+            if medicao_form.is_valid():
+                with transaction.atomic():
+                    medicao = medicao_form.save(commit=False)
+                    medicao.status_iso = 'PENDENTE'
+                    medicao.laudo_ia = 'Medição inicial cadastrada manualmente; sem laudo de IA.'
+                    medicao.full_clean()
+                    medicao.save()
+                    HistoricoMedicao.objects.create(
+                        medicao=medicao, autor=request.user, origem='MANUAL',
+                        percentual_anterior=0,
+                        percentual_novo=medicao.percentual_concluido,
+                        status_anterior='', status_novo=medicao.status_iso,
+                        etapa_anterior='', etapa_nova=medicao.etapa_atual,
+                        observacao='Criação da medição mensal por usuário autorizado.',
+                    )
+                messages.success(
+                    request, f'Medição de {medicao.mes_referencia} cadastrada, com FVS pendente.'
+                )
+                return redirect('cadastros')
+        else:
+            messages.error(request, 'Ação de cadastro desconhecida.')
+    return render(request, 'obras/cadastros.html', {
+        'torre_form': torre_form, 'apartamento_form': apartamento_form,
+        'medicao_form': medicao_form,
+        'torres': Torre.objects.all().order_by('nome'),
+        'apartamentos': Apartamento.objects.select_related('torre')[:20],
+        'medicoes': MedicaoMensal.objects.select_related(
+            'apartamento__torre'
+        ).order_by('-mes_referencia', '-id')[:20],
+    }, status=400 if request.method == 'POST' else 200)
