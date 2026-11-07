@@ -27,6 +27,7 @@
                 <a class="hover:text-cyan-300" href="{% url 'lista_rncs' %}">RNCs</a>
                 <a class="hover:text-cyan-300" href="{% url 'planejamento' %}">Metas simples</a>
                 <a class="hover:text-cyan-300" href="{% url 'planejamento_fisico' %}">Curva S física</a>
+                <a class="hover:text-cyan-300" href="{% url 'catalogo_inteligente' %}">Projetos & Vistorias</a>
                 {% if request.user.is_staff %}<a class="hover:text-cyan-300" href="{% url 'cadastros' %}">Cadastros</a><a class="hover:text-cyan-300" href="{% url 'relatorios' %}">Relatórios</a>{% endif %}
                 <form method="post" action="{% url 'logout_sistema' %}" class="inline">
                     {% csrf_token %}
