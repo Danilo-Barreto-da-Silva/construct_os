@@ -125,8 +125,8 @@
                 <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">QUALIDADE ISO 9001 E PENDÊNCIAS</p>
                 <div class="grid grid-cols-3 gap-2 text-center my-2">
                     <div class="bg-emerald-950/40 border border-emerald-500/40 rounded-lg p-2">
-                        <span class="text-xl font-black text-emerald-400">{{ unidades_iso_ok }}</span>
-                        <span class="block text-[10px] text-emerald-300">Concluído e FVS conforme</span>
+                        <span class="text-xl font-black text-emerald-400">{{ fvs_conformes }}</span>
+                        <span class="block text-[10px] text-emerald-300">FVS conforme</span>
                     </div>
                     <div class="bg-amber-950/40 border border-amber-500/40 rounded-lg p-2">
                         <span class="text-xl font-black text-amber-400">{{ unidades_trava }}</span>
@@ -137,7 +137,7 @@
                         <span class="block text-[10px] text-rose-300">FVS não conforme</span>
                     </div>
                 </div>
-                <p class="text-[11px] text-slate-400">Indicadores das medições no mês selecionado. Valores de demonstração não equivalem a laudos técnicos.</p>
+                <p class="text-[11px] text-slate-400">Concluídas fisicamente (100%) e com FVS conforme: <strong class="text-white">{{ unidades_iso_ok }}</strong>. Os três contadores acima representam apenas o status FVS das medições do mês; a execução física é independente. Valores de demonstração não equivalem a laudos técnicos.</p>
                 <a href="{% url 'lista_rncs' %}" class="text-[11px] text-cyan-300 hover:underline">RNCs formalizadas abertas: {{ rncs_formais_abertas }} · Sinalizações legadas sem RNC: {{ rncs_sem_formalizacao }}</a>
             </div>
         </div>
@@ -210,7 +210,8 @@
                     <h3 class="text-xs uppercase tracking-wider text-slate-400 font-bold">ANÁLISE DE EVOLUÇÃO DA OBRA</h3>
                     <p class="text-lg font-bold text-white mt-1">{% if existe_planejamento %}Planejado vs. realizado{% else %}Evolução física registrada{% endif %}</p>
                     <div id="scurveChart" class="mt-2"></div>
-                    <p class="text-xs text-slate-400">Média simples das medições cadastradas por mês, que podem abranger quantidades diferentes de apartamentos. {% if existe_planejamento %}A linha planejada utiliza metas registradas; meses sem cobertura completa não são comparados.{% else %}Sem metas cadastradas para este filtro. {% endif %}Uma Curva S real exige cronograma e pesos das atividades.</p>
+                    <div class="text-[11px] text-slate-400 flex flex-wrap gap-x-3 gap-y-1 mb-2">{% for amostra in cobertura_grafico %}<span>{{ amostra.mes }}: {{ amostra.quantidade }} de {{ amostra.total }} unidades</span>{% endfor %}</div>
+                    <p class="text-xs text-slate-400">Cada ponto representa a média das medições daquele mês. Os pontos não são ligados porque podem abranger apartamentos diferentes. {% if existe_planejamento %}A linha planejada utiliza metas registradas; meses sem cobertura completa não são comparados.{% else %}Sem metas cadastradas para este filtro. {% endif %}Uma Curva S real exige cronograma e pesos das atividades.</p>
                     <a class="text-xs text-cyan-300 hover:underline mt-2 inline-block" href="{% url 'planejamento' %}">Gerenciar metas físicas →</a>
                 </div>
 
@@ -321,14 +322,16 @@
         const valoresGrafico = JSON.parse(document.getElementById('valores-grafico').textContent);
         const metasGrafico = JSON.parse(document.getElementById('metas-grafico').textContent);
         const seriesGrafico = [{ name: 'Avanço registrado (%)', data: valoresGrafico }];
-        if (metasGrafico.some(valor => valor !== null)) {
+        const existeMetaGrafico = metasGrafico.some(valor => valor !== null);
+        if (existeMetaGrafico) {
             seriesGrafico.unshift({ name: 'Meta planejada (%)', data: metasGrafico });
         }
         new ApexCharts(document.querySelector("#scurveChart"), {
             chart: { type: 'line', height: 220, toolbar: { show: false }, background: 'transparent' },
             theme: { mode: 'dark' },
-            stroke: { curve: 'straight', width: 3 },
-            colors: ['#94a3b8', '#06b6d4'],
+            stroke: { curve: 'straight', width: existeMetaGrafico ? [2, 0] : [0] },
+            markers: { size: existeMetaGrafico ? [0, 5] : [5] },
+            colors: existeMetaGrafico ? ['#94a3b8', '#06b6d4'] : ['#06b6d4'],
             series: seriesGrafico,
             xaxis: { categories: mesesGrafico },
             yaxis: { min: 0, max: 100 },
