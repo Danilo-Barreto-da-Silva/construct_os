@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from .forms import StyledModelForm
 from .models import (
     TipologiaUnidade, AmbienteTipologia, ServicoTipologia, CriterioVistoria,
-    UnidadeInteligente, PesoServicoUnidade, DocumentoProjeto, ItemEsperadoProjeto,
+    UnidadeInteligente, PesoServicoUnidade, DocumentoProjeto, ItemEsperadoProjeto, VistoriaInteligente,
 )
 
 
@@ -129,11 +129,10 @@ class MedicaoVerificadaForm(forms.Form):
         widget=forms.NumberInput(attrs={'min':0,'max':100,'step':0.01}))
     observacao = forms.CharField(label='Observação técnica',required=False,max_length=500,
         widget=forms.Textarea(attrs={'rows':2}))
-    vistoria = forms.ModelChoiceField(queryset=None,required=False,label='Vídeo de origem')
+    vistoria = forms.ModelChoiceField(queryset=VistoriaInteligente.objects.none(),required=False,label='Vídeo de origem')
 
     def __init__(self,*args,unidade,**kwargs):
         super().__init__(*args,**kwargs)
-        from .models import VistoriaInteligente
         self.fields['criterio'].queryset = CriterioVistoria.objects.filter(
             servico__tipologia=unidade.tipologia
         ).select_related('servico')
