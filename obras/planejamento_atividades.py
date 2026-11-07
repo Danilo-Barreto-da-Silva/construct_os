@@ -6,9 +6,9 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
 
-from .curva_s import cadastrar_servico, consolidar_curva, registrar_marco
-from .forms import MarcoServicoForm, ServicoObraForm
-from .models import EventoMarcoServico, MarcoServico, Torre
+from .curva_s import cadastrar_servico, consolidar_curva, registrar_marco, atualizar_servico
+from .forms import MarcoServicoForm, ServicoObraForm, EditarServicoObraForm
+from .models import EventoMarcoServico, MarcoServico, ServicoObra, Torre
 
 
 @login_required(login_url='login_sistema')
@@ -45,6 +45,35 @@ def planejamento_fisico(request):
                     return redirect(
                         reverse('planejamento_fisico') + f'?torre={servico.torre_id}'
                     )
+        elif acao == 'editar_servico':
+            servico_id = request.POST.get('servico_id', '')
+            servico_antigo = (
+                ServicoObra.objects.filter(pk=int(servico_id), torre=torre).first()
+                if servico_id.isdecimal() and torre else None
+            )
+            if servico_antigo is None:
+                messages.error(request, 'Serviço não encontrado nesta torre.')
+            else:
+                edicao_form = EditarServicoObraForm(request.POST, instance=servico_antigo)
+                if edicao_form.is_valid():
+                    try:
+                        servico, alterou = atualizar_servico(
+                            autor=request.user, servico_id=servico_antigo.pk,
+                            descricao=edicao_form.cleaned_data['descricao'],
+                            peso_percentual=edicao_form.cleaned_data['peso_percentual'],
+                        )
+                    except ValidationError as exc:
+                        messages.error(request, f'Não foi possível editar: {exc}')
+                    else:
+                        if alterou:
+                            messages.success(request, 'Serviço corrigido com histórico da revisão.')
+                        else:
+                            messages.info(request, 'Serviço sem alterações.')
+                else:
+                    messages.error(request, 'Correção rejeitada: ' + edicao_form.errors.as_text()[:500])
+            return redirect(
+                reverse('planejamento_fisico') + (f'?torre={torre.pk}' if torre else '')
+            )
         elif acao == 'marco':
             servico_id = request.POST.get('servico', '')
             mes_postado = request.POST.get('mes_referencia', '')
