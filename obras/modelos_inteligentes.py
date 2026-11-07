@@ -68,6 +68,15 @@ class ServicoTipologia(models.Model):
             peso = sum((x.peso for x in outros), Decimal('0')) + self.peso
             if peso > Decimal('100'):
                 raise ValidationError({'peso': 'A soma dos serviços da tipologia não pode ultrapassar 100%.'})
+            # Bloqueia reponderação indireta de medições já verificadas.
+            if MedicaoCriterio.objects.filter(criterio__servico__tipologia_id=self.tipologia_id).exists():
+                anterior = ServicoTipologia.objects.filter(pk=self.pk).first() if self.pk else None
+                if (anterior is None or anterior.peso != self.peso or
+                        anterior.tipologia_id != self.tipologia_id):
+                    raise ValidationError(
+                        'Serviços e pesos ficam congelados após a primeira medição verificada. '
+                        'Crie uma nova versão de tipologia para mudar a metodologia.'
+                    )
 
     def __str__(self):
         return f'{self.codigo} · {self.nome} ({self.peso}%)'
@@ -101,6 +110,15 @@ class CriterioVistoria(models.Model):
             outros = CriterioVistoria.objects.filter(servico_id=self.servico_id).exclude(pk=self.pk)
             if sum((x.peso for x in outros), Decimal('0')) + self.peso > 100:
                 raise ValidationError({'peso': 'Os pesos dos critérios deste serviço ultrapassam 100%.'})
+            if MedicaoCriterio.objects.filter(criterio__servico__tipologia_id=self.servico.tipologia_id).exists():
+                anterior = CriterioVistoria.objects.filter(pk=self.pk).first() if self.pk else None
+                if (anterior is None or anterior.peso != self.peso or
+                        anterior.servico_id != self.servico_id or
+                        anterior.ambiente_id != self.ambiente_id):
+                    raise ValidationError(
+                        'Não altere os critérios, ambientes ou pesos de uma tipologia com '
+                        'medições validadas. Crie uma nova versão.'
+                    )
 
     def __str__(self):
         return f'{self.servico.codigo} / {self.codigo} — {self.descricao}'
@@ -145,10 +163,14 @@ class PesoServicoUnidade(models.Model):
             outros = PesoServicoUnidade.objects.filter(unidade_id=self.unidade_id).exclude(pk=self.pk)
             if self.peso is not None and sum((x.peso for x in outros), Decimal('0')) + self.peso > 100:
                 raise ValidationError({'peso': 'Pesos próprios ultrapassam 100%.'})
-            if self.pk and PesoServicoUnidade.objects.filter(pk=self.pk).exists():
-                anterior = PesoServicoUnidade.objects.get(pk=self.pk)
-                if anterior.peso != self.peso and MedicaoCriterio.objects.filter(apartamento_id=self.unidade.apartamento_id).exists():
-                    raise ValidationError('Pesos individuais ficam bloqueados após medição verificada.')
+            if MedicaoCriterio.objects.filter(apartamento_id=self.unidade.apartamento_id).exists():
+                anterior = PesoServicoUnidade.objects.filter(pk=self.pk).first() if self.pk else None
+                if (anterior is None or anterior.peso != self.peso or
+                        anterior.servico_id != self.servico_id or anterior.unidade_id != self.unidade_id):
+                    raise ValidationError(
+                        'Não crie nem altere pesos individuais após medições verificadas. '
+                        'Uma nova versão de metodologia deve ser configurada separadamente.'
+                    )
 
 
 class DocumentoProjeto(models.Model):
