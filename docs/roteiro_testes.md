@@ -64,3 +64,23 @@ Acesse a porta **8000 privada** pelo Codespaces.
 A chave de desenvolvimento usada acima é temporária. Não publique o endereço de porta ou credenciais do Codespaces. O histórico antigo do Git contém dados que exigem tratamento antes de disponibilizar o projeto publicamente.
 
 O Construct OS ainda não é homologado como ferramenta de certificação ISO 9001, medição contratual ou validação de engenharia.
+
+
+## 6. Curva S física ponderada (nova etapa)
+
+Confira o guia [Planejamento físico ponderado](curva_s_fisica.md), com exemplo de serviços e cálculos completos. Esta tela é distinta de **Planejamento → Metas simples**.
+
+1. Com `is_staff=True`, abra **Curva S física** e selecione uma torre exclusivamente de testes.
+2. Cadastre serviços com soma de pesos de **100%**. Um peso total incompleto não pode produzir um avanço ponderado aparentemente válido.
+3. Para cada mês, informe valores **acumulados** previstos e realizados de **cada** serviço. Quando faltar dado, o sistema deve mostrar **Indisponível**, não 0%.
+4. Compare os resultados do exemplo do guia (outubro: 45% previsto / 37% executado; novembro: 64% previsto / 54,5% executado).
+5. Tente registrar um percentual acumulado **inferior ao do mês anterior** ou **superior ao do mês seguinte**: deve ser rejeitado.
+6. Tente cadastrar serviços cuja soma ultrapasse 100%: deve ser rejeitado.
+7. Antes do primeiro lançamento, corrija o peso de um serviço e confira o histórico. Após o lançamento, o peso deve ficar congelado.
+8. Confira que uma **descrição** de serviço pode ser corrigida depois do lançamento sem alterar os cálculos, com histórico da revisão.
+9. No painel, filtre a torre: o bloco da **Curva S ponderada por serviços** deve aparecer separado da média das unidades.
+10. Em **Relatórios**, filtre o mesmo mês e exporte **serviços CSV**. Uma conta sem `is_staff` não pode exportar.
+11. Verifique que o status de FVS/RNC e o avanço físico por apartamento permanecem intactos após essas operações.
+12. Os commits desta etapa são aditivos. Nunca execute `flush`, `migrate obras zero` ou `popular-demo` em banco com dados.
+
+Esse teste usa **pesos fictícios** e **não valida tecnicamente** um cronograma de obra real.
