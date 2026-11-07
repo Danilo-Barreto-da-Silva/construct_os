@@ -304,3 +304,29 @@ class CurvaSTests(TestCase):
         servico.refresh_from_db()
         self.assertEqual(servico.peso_percentual, Decimal('100'))
         self.assertEqual(EventoServicoObra.objects.count(), 1)
+
+    def test_painel_filtrado_exibe_curva_ponderada_independente(self):
+        servico = self.servico()
+        self.marco(servico, '2026-11', previsto=60, realizado=40)
+        self.client.force_login(self.gestor)
+        resp = self.client.get(reverse('painel_principal'), {
+            'torre': self.torre.pk, 'mes': '2026-11',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.context['curva_servicos']['previstos'], [60.0])
+        self.assertEqual(resp.context['curva_servicos']['realizados'], [40.0])
+        self.assertContains(resp, 'Curva S física da torre selecionada')
+        self.assertContains(resp, 'Planejado por serviços')
+
+    def test_painel_geral_nao_mistura_curvas_entre_torres(self):
+        servico = self.servico()
+        self.marco(servico, '2026-11', previsto=60, realizado=40)
+        self.client.force_login(self.gestor)
+        geral = self.client.get(reverse('painel_principal'), {'mes': '2026-11'})
+        self.assertEqual(geral.status_code, 200)
+        self.assertIsNone(geral.context['curva_servicos'])
+        self.assertNotContains(geral, 'Curva S física da torre selecionada')
+        andar = self.client.get(reverse('painel_principal'), {
+            'torre': self.torre.pk, 'andar': '1', 'mes': '2026-11',
+        })
+        self.assertIsNone(andar.context['curva_servicos'])
