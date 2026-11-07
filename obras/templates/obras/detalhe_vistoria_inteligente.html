@@ -15,7 +15,7 @@
 <section class="panel p-5 space-y-3">
  <h2 class="font-bold text-lg">Vídeo, áudio e segurança</h2>
  <p class="text-slate-400 text-sm">O arquivo original permanece privado, disponível apenas a usuários autenticados. Evite filmar rostos e dados pessoais sem base legal e permissão.</p>
- <a class="btn btn-primary" href="{% url 'video_privado' visto.pk %}">Baixar vídeo original (autenticado)</a>
+ <div class="flex flex-wrap gap-2"><a class="btn btn-primary" href="{% url 'video_privado' visto.pk %}">Baixar vídeo original</a><a class="btn btn-muted" href="{% url 'comparar_vistoria_projeto' visto.pk %}">Comparar vídeo × projeto PDF</a></div>
  <p class="text-sm"><strong>Observação do vistoriador:</strong> {{ visto.observacao|default:"Nenhuma" }}</p>
  <p class="text-sm"><strong>Status de IA:</strong> {{ visto.get_estado_display }}. Modelo: {{ visto.modelo|default:"Ainda não processado" }}.</p>
  {% if visto.erro_publico %}<p class="text-amber-300 text-sm">{{ visto.erro_publico }}</p>{% endif %}
