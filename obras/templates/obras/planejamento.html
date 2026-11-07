@@ -33,7 +33,15 @@
           <td class="p-4">{{ item.mes_referencia }}</td>
           <td class="p-4">{{ item.torre.nome }}</td>
           <td class="p-4 font-bold text-cyan-400">{{ item.percentual_planejado }}%</td>
-          <td class="p-4 text-slate-400">{% if item.registrado_por %}{{ item.registrado_por.get_username }}{% else %}Não informado{% endif %}<span class="block text-xs">{{ item.atualizado_em|date:"d/m/Y H:i" }}</span></td>
+          <td class="p-4 text-slate-400">{% if item.registrado_por %}{{ item.registrado_por.get_username }}{% else %}Não informado{% endif %}<span class="block text-xs">{{ item.atualizado_em|date:"d/m/Y H:i" }}</span>
+          <details class="mt-2">
+            <summary class="cursor-pointer text-cyan-300 text-xs">Ver alterações da meta</summary>
+            <div class="mt-2 space-y-2 text-xs">
+              {% for evento in item.eventos.all %}
+              <p class="border-l-2 border-slate-600 pl-2">{{ evento.percentual_anterior|default_if_none:"Inicial" }} → {{ evento.percentual_novo }}% · {{ evento.registrado_em|date:"d/m/Y H:i" }} · {% if evento.autor %}{{ evento.autor.get_username }}{% else %}Usuário excluído{% endif %}</p>
+              {% empty %}<p>Sem histórico nesta meta.</p>{% endfor %}
+            </div>
+          </details></td>
         </tr>
         {% empty %}
         <tr><td colspan="4" class="p-8 text-center text-slate-400">Nenhuma meta registrada. O painel mostrará apenas a execução realizada até cadastrar planejamento.</td></tr>
