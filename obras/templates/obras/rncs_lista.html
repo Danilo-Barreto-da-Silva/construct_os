@@ -57,7 +57,7 @@
           <span class="{% if rnc.situacao == 'RESOLVIDA' %}text-emerald-400{% elif rnc.situacao == 'ABERTA' %}text-rose-400{% else %}text-amber-300{% endif %}">{{ rnc.get_situacao_display }}</span>
         </td>
         <td class="p-4">{% if rnc.responsavel %}{{ rnc.responsavel.get_username }}{% else %}<span class="text-slate-500">Não atribuído</span>{% endif %}</td>
-        <td class="p-4">{% if rnc.prazo %}{{ rnc.prazo|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+        <td class="p-4">{% if rnc.prazo %}{{ rnc.prazo|date:"d/m/Y" }}{% if rnc.em_atraso %}<span class="block text-xs font-bold text-rose-400">Em atraso</span>{% endif %}{% else %}—{% endif %}</td>
         <td class="p-4"><a class="text-cyan-300 hover:underline whitespace-nowrap" href="{% url 'detalhe_rnc' rnc.pk %}">Abrir →</a></td>
       </tr>
       {% empty %}
