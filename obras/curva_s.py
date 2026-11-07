@@ -137,10 +137,24 @@ def consolidar_curva(torre):
     )
     pesos_total = sum((servico.peso_percentual for servico in servicos), ZERO)
     pesos_ok = bool(servicos) and pesos_total == CENTO
-    meses = sorted({
+    meses_registrados = sorted({
         marco.mes_referencia for servico in servicos
         for marco in servico.marcos.all()
     })
+    # Completa o eixo temporal, mas NÃO preenche percentuais de meses
+    # inexistentes. Um buraco em novembro não vira progresso artificial.
+    meses = []
+    if meses_registrados:
+        ano_inicio, mes_inicio = map(int, meses_registrados[0].split('-'))
+        ano_fim, mes_fim = map(int, meses_registrados[-1].split('-'))
+        indice_inicio = ano_inicio * 12 + mes_inicio - 1
+        indice_fim = ano_fim * 12 + mes_fim - 1
+        # Evita carregar até cem anos de meses num erro de cadastro.
+        indice_inicio = max(indice_inicio, indice_fim - 119)
+        meses = [
+            f'{indice // 12}-{(indice % 12) + 1:02d}'
+            for indice in range(indice_inicio, indice_fim + 1)
+        ]
     index = {
         servico.pk: {marco.mes_referencia: marco for marco in servico.marcos.all()}
         for servico in servicos
