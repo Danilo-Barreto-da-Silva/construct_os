@@ -303,3 +303,37 @@ class InteligenciaTests(TestCase):
         self.assertEqual(self.client.post(url).status_code,302)
         visto.refresh_from_db()
         self.assertEqual(visto.estado,'PENDENTE')
+
+    def test_servico_e_criterio_nao_mudam_depois_de_uso(self):
+        validar_medicao(
+            autor=self.gestor,unidade=self.cfg,criterio=self.c1,
+            mes='2026-11',percentual=10
+        )
+        extra=ServicoTipologia(
+            tipologia=self.tipo,codigo='PINT',nome='Pintura',peso=Decimal('1')
+        )
+        with self.assertRaises(ValidationError):
+            extra.full_clean()
+        self.s1.peso=Decimal('59')
+        with self.assertRaises(ValidationError):
+            self.s1.full_clean()
+        self.s1.refresh_from_db()
+        criterio_novo=CriterioVistoria(
+            servico=self.s1,codigo='PRUMO',descricao='Prumo',peso=Decimal('1')
+        )
+        with self.assertRaises(ValidationError):
+            criterio_novo.full_clean()
+        self.c1.peso=Decimal('99')
+        with self.assertRaises(ValidationError):
+            self.c1.full_clean()
+
+    def test_novo_override_depois_de_medir_e_bloqueado(self):
+        validar_medicao(
+            autor=self.gestor,unidade=self.cfg,criterio=self.c1,
+            mes='2026-11',percentual=25
+        )
+        novo=PesoServicoUnidade(
+            unidade=self.cfg,servico=self.s1,peso=Decimal('60')
+        )
+        with self.assertRaises(ValidationError):
+            novo.full_clean()
