@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from obras import views, operacoes
+from obras import views, operacoes, relatorios
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -19,6 +19,9 @@ urlpatterns = [
     path('qualidade/fvs/<int:medicao_id>/item/<int:item_id>/', operacoes.salvar_item_fvs_view, name='editar_item_fvs'),
     path('planejamento/', operacoes.planejamento, name='planejamento'),
     path('cadastros/', operacoes.cadastros, name='cadastros'),
+    path('relatorios/', relatorios.relatorios, name='relatorios'),
+    path('relatorios/medicoes.csv', relatorios.exportar_medicoes_csv, name='exportar_medicoes_csv'),
+    path('relatorios/rncs.csv', relatorios.exportar_rncs_csv, name='exportar_rncs_csv'),
     path('apartamento/<int:medicao_id>/avaliar/', views.avaliar_apartamento, name='avaliar_apartamento'),
     path('apartamento/<int:medicao_id>/historico/', views.historico_medicao, name='historico_medicao'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
