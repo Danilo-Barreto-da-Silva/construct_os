@@ -74,13 +74,28 @@ def painel_principal(request):
         medicoes_mes_atual = medicoes_mes_atual.filter(apartamento__andar=andar_num)
         medicoes_mes_anterior = medicoes_mes_anterior.filter(apartamento__andar=andar_num)
 
+    unidades_filtro = Apartamento.objects.all()
+    if torre_selecionada != 'TODAS':
+        unidades_filtro = unidades_filtro.filter(torre_id=int(torre_selecionada))
+    if andar_selecionado != 'TODOS':
+        unidades_filtro = unidades_filtro.filter(andar=andar_num) if andar_num is not None else unidades_filtro.none()
+    total_unidades = unidades_filtro.count()
+
     total_med = medicoes_mes_atual.count()
     avanco_atual = round(sum(m.percentual_concluido for m in medicoes_mes_atual) / total_med, 1) if total_med > 0 else 0.0
+    cobertura_completa = total_unidades > 0 and total_med == total_unidades
 
     total_ant = medicoes_mes_anterior.count()
     avanco_anterior = round(sum(m.percentual_concluido for m in medicoes_mes_anterior) / total_ant, 1) if total_ant > 0 else 0.0
-
-    ritmo_mensal = round(avanco_atual - avanco_anterior, 1) if total_ant and total_med else None
+    atuais_ids = set(medicoes_mes_atual.values_list('apartamento_id', flat=True))
+    anteriores_ids = set(medicoes_mes_anterior.values_list('apartamento_id', flat=True))
+    # Não comparar meses com grupos diferentes ou cobertura incompleta:
+    # médias parciais poderiam simular progresso ou retrocesso inexistente.
+    ritmo_mensal = (
+        round(avanco_atual - avanco_anterior, 1)
+        if cobertura_completa and atuais_ids and atuais_ids == anteriores_ids
+        else None
+    )
     falta_construir = max(0.0, round(100.0 - avanco_atual, 1))
     meses_para_terminar = round(falta_construir / ritmo_mensal, 1) if ritmo_mensal is not None and ritmo_mensal > 0 else None
 
@@ -129,6 +144,12 @@ def painel_principal(request):
             else:
                 metas_grafico.append(None)
 
+    # Oculta metas em meses com cobertura física parcial do conjunto de unidades.
+    for indice, mes in enumerate(meses_grafico):
+        qtd_mes = historico.filter(mes_referencia=mes).count()
+        if qtd_mes != total_unidades:
+            metas_grafico[indice] = None
+
     rncs_formais_abertas = NaoConformidade.objects.exclude(
         situacao='RESOLVIDA'
     ).count()
@@ -168,6 +189,9 @@ def painel_principal(request):
         'andar_selecionado': andar_selecionado,
         'andares_disponiveis': sorted(set(Apartamento.objects.values_list('andar', flat=True)), reverse=True),
         'avanco_atual': avanco_atual,
+        'total_med': total_med,
+        'total_unidades': total_unidades,
+        'cobertura_completa': cobertura_completa,
         'ritmo_mensal': ritmo_mensal,
         'falta_construir': falta_construir,
         'meses_para_terminar': meses_para_terminar,
