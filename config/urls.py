@@ -11,4 +11,5 @@ urlpatterns = [
     path('', views.painel_principal, name='painel_principal'),
     path('popular-demo/', views.popular_dados_demo, name='popular_dados_demo'),
     path('apartamento/<int:medicao_id>/avaliar/', views.avaliar_apartamento, name='avaliar_apartamento'),
+    path('apartamento/<int:medicao_id>/historico/', views.historico_medicao, name='historico_medicao'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
