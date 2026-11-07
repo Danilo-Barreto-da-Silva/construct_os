@@ -9,7 +9,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
-from .models import MedicaoMensal, NaoConformidade, Torre, MarcoServico, validar_mes_referencia
+from .models import MedicaoMensal, NaoConformidade, Torre, MarcoServico, PlanejamentoMensal, validar_mes_referencia
 from .curva_s import consolidar_curva
 
 
@@ -18,7 +18,8 @@ def selecionar_filtros(request):
     # dos lançamentos por serviço. Um não deve ocultar o outro.
     meses_medidos = MedicaoMensal.objects.values_list('mes_referencia', flat=True).distinct()
     meses_atividades = MarcoServico.objects.values_list('mes_referencia', flat=True).distinct()
-    meses = sorted(set(meses_medidos) | set(meses_atividades), reverse=True)
+    meses_metas = PlanejamentoMensal.objects.values_list('mes_referencia', flat=True).distinct()
+    meses = sorted(set(meses_medidos) | set(meses_atividades) | set(meses_metas), reverse=True)
     mes = request.GET.get('mes', '')
     if mes not in meses:
         mes = meses[0] if meses else ''
