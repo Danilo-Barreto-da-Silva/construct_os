@@ -75,11 +75,30 @@ def atualizar_rnc(rnc_id, *, autor, situacao, acao_corretiva, responsavel, prazo
         rnc.situacao, rnc.acao_corretiva, rnc.responsavel_id, rnc.prazo
     )
     if alterou or comentario.strip():
+        alteracoes = []
+        if anterior != situacao:
+            alteracoes.append(f'Situação: {anterior} → {situacao}')
+        if valores_anteriores[1] != rnc.acao_corretiva:
+            alteracoes.append(
+                f'Ação corretiva: {valores_anteriores[1] or "(vazia)"} → '
+                f'{rnc.acao_corretiva or "(vazia)"}'
+            )
+        if valores_anteriores[2] != rnc.responsavel_id:
+            alteracoes.append(
+                f'Responsável (ID): {valores_anteriores[2] or "não atribuído"} → '
+                f'{rnc.responsavel_id or "não atribuído"}'
+            )
+        if valores_anteriores[3] != rnc.prazo:
+            alteracoes.append(
+                f'Prazo: {valores_anteriores[3] or "não definido"} → '
+                f'{rnc.prazo or "não definido"}'
+            )
+        if comentario.strip():
+            alteracoes.append(f'Comentário: {comentario.strip()}')
         EventoRNC.objects.create(
             rnc=rnc, autor=autor, situacao_anterior=anterior,
             situacao_nova=situacao,
-            descricao=(comentario.strip() or
-                       f'Situação: {anterior} → {situacao}. Ação e atribuição atualizadas.')[:2000],
+            descricao='\n'.join(alteracoes)[:5000],
         )
     # Uma RNC resolvida exige reavaliação própria da FVS:
     # NÃO converte automaticamente a medição para CONFORME.
@@ -113,7 +132,10 @@ def salvar_item_fvs(medicao_id, *, autor, descricao, resultado, observacao, item
             item=item, autor=autor,
             resultado_anterior=resultado_anterior,
             resultado_novo=resultado,
-            observacao=f'{descricao[:180]}: {observacao[:850]}',
+            observacao=(
+                f'Descrição: {valores_anteriores[0] if valores_anteriores else "(novo)"} → {item.descricao}\n'
+                f'Observação: {valores_anteriores[2] if valores_anteriores else "(vazia)"} → {item.observacao}'
+            )[:3000],
         )
         if medicao.status_iso == 'CONFORME':
             registrar_status_medicao(
