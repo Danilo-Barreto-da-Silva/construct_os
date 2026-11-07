@@ -320,8 +320,11 @@ def avaliar_apartamento(request, medicao_id):
                 raise ValueError('Informe uma etapa com até 100 caracteres.')
             if status == 'CONFORME' and not request.user.is_staff:
                 raise PermissionDenied('Somente um membro autorizado pode registrar FVS conforme.')
-            if status == 'CONFORME' and medicao.rncs.exclude(situacao='RESOLVIDA').exists():
-                raise ValueError('Existem RNCs formais abertas. Trate-as antes de aprovar a FVS.')
+            if status != 'NAO_CONFORME' and medicao.rncs.exclude(
+                    situacao='RESOLVIDA').exists():
+                raise ValueError(
+                    'Existem RNCs formais abertas. A FVS permanece não conforme até tratamento.'
+                )
             if status == 'CONFORME' and medicao.itens_fvs.exclude(
                     resultado__in=['CONFORME', 'NA']).exists():
                 raise ValueError('Existem itens de FVS não aprovados ou não verificados.')
