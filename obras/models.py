@@ -32,7 +32,7 @@ class MedicaoMensal(models.Model):
     STATUS_ISO = [
         ('CONFORME', 'Conforme (ISO 9001 OK)'),
         ('PENDENTE', 'Pendente de FVS'),
-        ('NAO_CONFORME', 'Não Conforme (RNC Aberta)'),
+        ('NAO_CONFORME', 'Não conforme (FVS)'),
     ]
 
     apartamento = models.ForeignKey(Apartamento, related_name='medicoes', on_delete=models.CASCADE)
