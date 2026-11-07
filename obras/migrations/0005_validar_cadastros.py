@@ -22,6 +22,14 @@ class Migration(migrations.Migration):
             name='mes_referencia',
             field=models.CharField(default='2026-11', max_length=7, validators=[obras.models.validar_mes_referencia]),
         ),
+        migrations.AlterField(
+            model_name='medicaomensal',
+            name='status_iso',
+            field=models.CharField(
+                choices=[('CONFORME', 'Conforme (ISO 9001 OK)'), ('PENDENTE', 'Pendente de FVS'), ('NAO_CONFORME', 'Não conforme (FVS)')],
+                default='PENDENTE', max_length=20,
+            ),
+        ),
         migrations.AddConstraint(
             model_name='apartamento',
             constraint=models.UniqueConstraint(fields=('torre', 'numero'), name='apartamento_numero_unico_por_torre'),
