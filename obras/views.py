@@ -7,9 +7,10 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
-from .models import Torre, Apartamento, MedicaoMensal
+from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao
 from .ia_vistoria import analisar_video_obra
 
 def login_sistema(request):
@@ -189,66 +190,146 @@ def popular_dados_demo(request):
     return redirect('painel_principal')
 
 @login_required(login_url='login_sistema')
-def avaliar_apartamento(request, medicao_id):
-    if request.method == 'POST':
-        medicao = get_object_or_404(MedicaoMensal, id=medicao_id)
-        acao = request.POST.get('acao')
+def historico_medicao(request, medicao_id):
+    medicao = get_object_or_404(
+        MedicaoMensal.objects.select_related('apartamento__torre', 'fvs_aprovada_por'),
+        pk=medicao_id,
+    )
+    registros = medicao.historico.select_related('autor').all()
+    return render(request, 'obras/historico_medicao.html', {
+        'medicao': medicao,
+        'registros': registros,
+    })
 
-        if acao == 'ia_video':
-            video = request.FILES.get('video_vistoria')
-            if not video:
-                messages.error(request, 'Selecione um vídeo antes de solicitar análise.')
-            elif video.size > 30 * 1024 * 1024:
-                messages.error(request, 'Vídeo excede o limite de 30 MB.')
-            elif settings.GEMINI_API_KEY == 'MODO_SIMULACAO':
-                messages.error(request, 'Configure GEMINI_API_KEY para analisar vídeos reais.')
-            else:
-                temp_path = None
-                try:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-                        for chunk in video.chunks():
-                            tmp.write(chunk)
-                        temp_path = tmp.name
-                    laudo = analisar_video_obra(temp_path, medicao.apartamento.numero, medicao.requisito_iso)
-                    sugestao = (
-                        f"Etapa sugerida: {laudo.etapa_identificada}\\n"
-                        f"Avanço sugerido: {laudo.percentual_sugerido}%\\n"
-                        f"Status sugerido: {laudo.status_iso_sugerido}\\n"
-                        f"Análise: {laudo.resumo_tecnico}"
-                    )
+
+@login_required(login_url='login_sistema')
+@require_POST
+def avaliar_apartamento(request, medicao_id):
+    medicao = get_object_or_404(MedicaoMensal, pk=medicao_id)
+    acao = request.POST.get('acao')
+
+    if acao == 'ia_video':
+        video = request.FILES.get('video_vistoria')
+        if not video:
+            messages.error(request, 'Selecione um vídeo antes de solicitar análise.')
+        elif video.size > 30 * 1024 * 1024:
+            messages.error(request, 'Vídeo excede o limite de 30 MB.')
+        elif settings.GEMINI_API_KEY == 'MODO_SIMULACAO':
+            messages.error(request, 'Configure GEMINI_API_KEY para analisar vídeos reais.')
+        else:
+            temp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp:
+                    for chunk in video.chunks():
+                        tmp.write(chunk)
+                    temp_path = tmp.name
+
+                laudo = analisar_video_obra(
+                    temp_path, medicao.apartamento.numero, medicao.requisito_iso
+                )
+                sugestao = (
+                    f"Etapa sugerida: {laudo.etapa_identificada}\\n"
+                    f"Avanço sugerido: {laudo.percentual_sugerido}%\\n"
+                    f"Status sugerido: {laudo.status_iso_sugerido}\\n"
+                    f"Análise: {laudo.resumo_tecnico}"
+                )
+                with transaction.atomic():
+                    medicao = MedicaoMensal.objects.select_for_update().get(pk=medicao_id)
                     medicao.sugestao_ia = sugestao
                     medicao.save(update_fields=['sugestao_ia'])
-                    messages.info(request, 'Análise recebida como sugestão. A medição e a FVS não foram alteradas; valide o resultado manualmente.')
-                except Exception:
-                    messages.error(request, 'Não foi possível analisar o vídeo. Confira a configuração e tente novamente.')
-                finally:
-                    if temp_path and os.path.exists(temp_path):
-                        os.remove(temp_path)
-        elif acao == 'manual':
-            try:
-                percentual = int(request.POST.get('percentual', ''))
-                status = request.POST.get('status_iso', '')
-                etapa = request.POST.get('etapa_atual', '').strip()
-                observacao = request.POST.get('laudo_ia', '').strip()
-                if status not in dict(MedicaoMensal.STATUS_ISO):
-                    raise ValueError('Status de FVS inválido.')
-                if not 0 <= percentual <= 100:
-                    raise ValueError('Percentual deve estar entre 0 e 100.')
-                if not etapa or len(etapa) > 100:
-                    raise ValueError('Informe uma etapa com até 100 caracteres.')
+                    HistoricoMedicao.objects.create(
+                        medicao=medicao, autor=request.user, origem='SUGESTAO_IA',
+                        percentual_anterior=medicao.percentual_concluido,
+                        percentual_novo=medicao.percentual_concluido,
+                        status_anterior=medicao.status_iso,
+                        status_novo=medicao.status_iso,
+                        etapa_anterior=medicao.etapa_atual,
+                        etapa_nova=medicao.etapa_atual,
+                        observacao=sugestao[:2000],
+                    )
+                messages.info(
+                    request,
+                    'Sugestão registrada no histórico. A medição e a FVS não foram alteradas.'
+                )
+            except Exception:
+                messages.error(
+                    request,
+                    'Não foi possível analisar o vídeo. Confira a configuração e tente novamente.'
+                )
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+
+    elif acao == 'manual':
+        try:
+            percentual = int(request.POST.get('percentual', ''))
+            status = request.POST.get('status_iso', '')
+            etapa = request.POST.get('etapa_atual', '').strip()
+            observacao = request.POST.get('laudo_ia', '').strip()
+
+            if not 0 <= percentual <= 100:
+                raise ValueError('Percentual deve estar entre 0 e 100.')
+            if status not in dict(MedicaoMensal.STATUS_ISO):
+                raise ValueError('Status de FVS inválido.')
+            if not etapa or len(etapa) > 100:
+                raise ValueError('Informe uma etapa com até 100 caracteres.')
+            if status == 'CONFORME' and not request.user.is_staff:
+                raise PermissionDenied('Somente um membro autorizado pode registrar FVS conforme.')
+
+            with transaction.atomic():
+                medicao = MedicaoMensal.objects.select_for_update().get(pk=medicao_id)
+                percentual_anterior = medicao.percentual_concluido
+                status_anterior = medicao.status_iso
+                etapa_anterior = medicao.etapa_atual
+                observacao_anterior = medicao.laudo_ia
+
                 medicao.percentual_concluido = percentual
                 medicao.status_iso = status
                 medicao.etapa_atual = etapa
                 medicao.laudo_ia = observacao
+
+                if status == 'CONFORME':
+                    # Registro de aprovação administrativa; não é assinatura digital.
+                    if (status_anterior != 'CONFORME' or
+                            percentual != percentual_anterior or
+                            etapa != etapa_anterior or
+                            observacao != observacao_anterior or
+                            medicao.fvs_aprovada_por_id is None):
+                        medicao.fvs_aprovada_por = request.user
+                        medicao.fvs_aprovada_em = timezone.now()
+                else:
+                    medicao.fvs_aprovada_por = None
+                    medicao.fvs_aprovada_em = None
+
                 medicao.full_clean()
                 medicao.save()
-                messages.success(request, f'Medição do apartamento {medicao.apartamento.numero} salva. Avanço físico e situação da FVS são independentes.')
-            except (ValueError, ValidationError) as exc:
-                messages.error(request, f'Dados inválidos: {exc}')
-        else:
-            messages.error(request, 'Ação não reconhecida.')
+
+                if (percentual != percentual_anterior or status != status_anterior or
+                        etapa != etapa_anterior or observacao != observacao_anterior):
+                    HistoricoMedicao.objects.create(
+                        medicao=medicao, autor=request.user, origem='MANUAL',
+                        percentual_anterior=percentual_anterior,
+                        percentual_novo=percentual,
+                        status_anterior=status_anterior,
+                        status_novo=status,
+                        etapa_anterior=etapa_anterior,
+                        etapa_nova=etapa,
+                        observacao=observacao[:2000],
+                    )
+
+            messages.success(
+                request,
+                f'Medição do apartamento {medicao.apartamento.numero} registrada. '
+                'Consulte o histórico para conferir as alterações.'
+            )
+        except (ValueError, ValidationError) as exc:
+            messages.error(request, f'Dados inválidos: {exc}')
+    else:
+        messages.error(request, 'Ação não reconhecida.')
 
     destino = request.META.get('HTTP_REFERER', '')
-    if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+    if not url_has_allowed_host_and_scheme(
+        destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
         destino = '/'
     return redirect(destino)
