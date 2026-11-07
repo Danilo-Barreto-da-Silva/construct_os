@@ -30,7 +30,9 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-3 mt-2 sm:mt-0">
+        <div class="flex items-center flex-wrap gap-3 mt-2 sm:mt-0">
+            <a href="{% url 'lista_rncs' %}" class="bg-rose-500/10 text-rose-300 border border-rose-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-rose-500/20"><i class="fa-solid fa-clipboard-list mr-1"></i> RNCs</a>
+            <a href="{% url 'planejamento' %}" class="bg-sky-500/10 text-sky-300 border border-sky-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-sky-500/20"><i class="fa-solid fa-chart-line mr-1"></i> Planejamento</a>
             {% if pode_gerar_demo %}<form method="POST" action="{% url 'popular_dados_demo' %}" onsubmit="return confirm('Criar dados fictícios neste banco vazio?')">
                 {% csrf_token %}
                 <input type="hidden" name="confirmar_substituicao" value="SIM">
@@ -131,7 +133,8 @@
                         <span class="block text-[10px] text-rose-300">RNC Aberta</span>
                     </div>
                 </div>
-                <p class="text-[11px] text-slate-400">Clique em qualquer apartamento para abrir a vistoria da IA</p>
+                <p class="text-[11px] text-slate-400">Indicadores das medições no mês selecionado. Valores de demonstração não equivalem a laudos técnicos.</p>
+                <a href="{% url 'lista_rncs' %}" class="text-[11px] text-cyan-300 hover:underline">RNCs formalizadas abertas: {{ rncs_formais_abertas }} · Sinalizações legadas sem RNC: {{ rncs_sem_formalizacao }}</a>
             </div>
         </div>
 
@@ -201,9 +204,10 @@
             <div class="bg-[#11192c] border border-slate-800 rounded-xl p-5 flex flex-col justify-between shadow-lg">
                 <div>
                     <h3 class="text-xs uppercase tracking-wider text-slate-400 font-bold">ANÁLISE DE EVOLUÇÃO DA OBRA</h3>
-                    <p class="text-lg font-bold text-white mt-1">Evolução física registrada (histórico real)</p>
+                    <p class="text-lg font-bold text-white mt-1">{% if existe_planejamento %}Planejado vs. realizado{% else %}Evolução física registrada{% endif %}</p>
                     <div id="scurveChart" class="mt-2"></div>
-                    <p class="text-xs text-slate-400">Média simples das medições cadastradas por mês. Uma Curva S planejada exige cronograma físico e pesos dos serviços.</p>
+                    <p class="text-xs text-slate-400">Média simples das medições cadastradas por mês. {% if existe_planejamento %}A linha planejada utiliza metas registradas; meses sem cobertura completa não são estimados.{% else %}Sem metas cadastradas para este filtro. {% endif %}Uma Curva S real exige cronograma e pesos das atividades.</p>
+                    <a class="text-xs text-cyan-300 hover:underline mt-2 inline-block" href="{% url 'planejamento' %}">Gerenciar metas físicas →</a>
                 </div>
 
                 <div class="bg-[#090e17] border border-slate-800 rounded-lg p-4 mt-4 space-y-2 text-xs">
@@ -275,7 +279,11 @@
                 </div>
                 <p class="text-xs text-slate-400">A indicação de FVS conforme exige usuário autorizado (equipe técnica). Toda alteração salva passa a ter registro de autoria no histórico.</p>
                 <div class="flex flex-wrap items-center justify-between gap-2">
-                    <a id="linkHistorico" href="#" class="text-xs font-bold text-cyan-300 hover:text-cyan-200 underline">Ver histórico desta medição</a>
+                    <div class="flex flex-wrap gap-3">
+                      <a id="linkHistorico" href="#" class="text-xs font-bold text-cyan-300 hover:text-cyan-200 underline">Histórico</a>
+                      <a id="linkChecklist" href="#" class="text-xs font-bold text-cyan-300 hover:text-cyan-200 underline">Checklist FVS</a>
+                      <a id="linkNovaRNC" href="#" class="text-xs font-bold text-rose-300 hover:text-rose-200 underline">Registrar RNC</a>
+                    </div>
                     <div class="flex justify-end gap-2">
                     <button type="button" onclick="fecharModal()" class="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">Cancelar</button>
                     <button type="submit" class="px-5 py-2 rounded-lg text-xs font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950">Salvar Medição & FVS</button>
@@ -287,6 +295,7 @@
 
     {{ meses_grafico|json_script:"meses-grafico" }}
     {{ valores_grafico|json_script:"valores-grafico" }}
+    {{ metas_grafico|json_script:"metas-grafico" }}
     <script>
         new ApexCharts(document.querySelector("#radialChart"), {
             chart: { type: 'radialBar', height: 140, sparkline: { enabled: true } },
@@ -306,12 +315,17 @@
 
         const mesesGrafico = JSON.parse(document.getElementById('meses-grafico').textContent);
         const valoresGrafico = JSON.parse(document.getElementById('valores-grafico').textContent);
+        const metasGrafico = JSON.parse(document.getElementById('metas-grafico').textContent);
+        const seriesGrafico = [{ name: 'Avanço registrado (%)', data: valoresGrafico }];
+        if (metasGrafico.some(valor => valor !== null)) {
+            seriesGrafico.unshift({ name: 'Meta planejada (%)', data: metasGrafico });
+        }
         new ApexCharts(document.querySelector("#scurveChart"), {
             chart: { type: 'line', height: 220, toolbar: { show: false }, background: 'transparent' },
             theme: { mode: 'dark' },
             stroke: { curve: 'straight', width: 3 },
-            colors: ['#06b6d4'],
-            series: [{ name: 'Avanço registrado (%)', data: valoresGrafico }],
+            colors: ['#94a3b8', '#06b6d4'],
+            series: seriesGrafico,
             xaxis: { categories: mesesGrafico },
             yaxis: { min: 0, max: 100 },
             noData: { text: 'Sem medições para o período' },
@@ -330,6 +344,8 @@
             document.getElementById('formIA').action = `/apartamento/${id}/avaliar/`;
             document.getElementById('formManual').action = `/apartamento/${id}/avaliar/`;
             document.getElementById('linkHistorico').href = `/apartamento/${id}/historico/`;
+            document.getElementById('linkChecklist').href = `/qualidade/fvs/${id}/`;
+            document.getElementById('linkNovaRNC').href = `/qualidade/rnc/abrir/${id}/`;
             document.getElementById('modalApto').classList.remove('hidden');
             document.getElementById('modalApto').classList.add('flex');
         }
