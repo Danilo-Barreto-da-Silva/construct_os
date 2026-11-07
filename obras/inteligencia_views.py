@@ -2,6 +2,7 @@
 import hashlib
 from datetime import timedelta
 from io import BytesIO
+from pathlib import Path
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -13,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 
 from .forms_inteligentes import (
     TipologiaForm, AmbienteForm, ServicoTipoForm, CriterioForm, UnidadeForm,
@@ -312,3 +314,57 @@ def etiquetas_tipologia(request,tipologia_id):
     return render(request,'obras/etiquetas_tipologia.html',{
         'tipo':tipo,'unidades':unidades,
     })
+
+
+
+@login_required(login_url='login_sistema')
+def comparar_vistoria_projeto(request,vistoria_id):
+    """Visualização LADO A LADO para conferência humana; não é sobreposição BIM."""
+    visto=get_object_or_404(
+        VistoriaInteligente.objects.select_related('apartamento__torre'),pk=vistoria_id
+    )
+    cfg=get_object_or_404(UnidadeInteligente,apartamento=visto.apartamento,ativo=True)
+    docs=DocumentoProjeto.objects.filter(tipologia=cfg.tipologia).order_by('disciplina','-enviado_em')
+    escolhido=request.GET.get('documento','')
+    doc=docs.filter(pk=int(escolhido)).first() if escolhido.isdecimal() else docs.first()
+    return render(request,'obras/comparar_vistoria_projeto.html',{
+        'visto':visto,'cfg':cfg,'documentos':docs,'documento':doc,
+        'itens':ItemEsperadoProjeto.objects.filter(documento=doc).select_related(
+            'criterio','conferido_por'
+        ) if doc else [],
+    })
+
+
+@login_required(login_url='login_sistema')
+@never_cache
+def video_reproducao(request,vistoria_id):
+    visto=get_object_or_404(VistoriaInteligente,pk=vistoria_id)
+    try:
+        arquivo=visto.arquivo.open('rb')
+    except OSError:
+        raise Http404('Arquivo indisponível.')
+    extensao=Path(visto.arquivo.name).suffix.lower()
+    mime={'.mp4':'video/mp4','.mov':'video/quicktime','.webm':'video/webm'}.get(
+        extensao,'application/octet-stream'
+    )
+    resposta=FileResponse(arquivo,content_type=mime)
+    resposta['Content-Disposition']='inline'
+    resposta['Cache-Control']='private, no-store'
+    resposta['X-Content-Type-Options']='nosniff'
+    return resposta
+
+
+@login_required(login_url='login_sistema')
+@never_cache
+@xframe_options_sameorigin
+def documento_visualizacao(request,documento_id):
+    doc=get_object_or_404(DocumentoProjeto,pk=documento_id)
+    try:
+        arquivo=doc.arquivo.open('rb')
+    except OSError:
+        raise Http404('Documento indisponível.')
+    resposta=FileResponse(arquivo,content_type='application/pdf')
+    resposta['Content-Disposition']='inline'
+    resposta['Cache-Control']='private, no-store'
+    resposta['X-Content-Type-Options']='nosniff'
+    return resposta
