@@ -33,7 +33,8 @@
         <div class="flex items-center flex-wrap gap-3 mt-2 sm:mt-0">
             <a href="{% url 'lista_rncs' %}" class="bg-rose-500/10 text-rose-300 border border-rose-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-rose-500/20"><i class="fa-solid fa-clipboard-list mr-1"></i> RNCs</a>
             <a href="{% url 'planejamento' %}" class="bg-sky-500/10 text-sky-300 border border-sky-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-sky-500/20"><i class="fa-solid fa-chart-line mr-1"></i> Planejamento</a>
-            {% if request.user.is_staff %}<a href="{% url 'cadastros' %}" class="bg-slate-700/40 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-700"><i class="fa-solid fa-plus mr-1"></i> Cadastros</a>{% endif %}
+            {% if request.user.is_staff %}<a href="{% url 'cadastros' %}" class="bg-slate-700/40 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-700"><i class="fa-solid fa-plus mr-1"></i> Cadastros</a>
+            <a href="{% url 'relatorios' %}" class="bg-slate-700/40 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-700"><i class="fa-solid fa-file-csv mr-1"></i> Relatórios</a>{% endif %}
             {% if pode_gerar_demo %}<form method="POST" action="{% url 'popular_dados_demo' %}" onsubmit="return confirm('Criar dados fictícios neste banco vazio?')">
                 {% csrf_token %}
                 <input type="hidden" name="confirmar_substituicao" value="SIM">
