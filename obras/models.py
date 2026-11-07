@@ -332,3 +332,11 @@ class EventoServicoObra(models.Model):
 
     class Meta:
         ordering = ['-criado_em', '-id']
+
+
+# Modelos da vistoria parametrizada. Importados para registro no Django.
+from .modelos_inteligentes import (  # noqa: E402, F401
+    TipologiaUnidade, AmbienteTipologia, ServicoTipologia, CriterioVistoria,
+    UnidadeInteligente, PesoServicoUnidade, DocumentoProjeto, ItemEsperadoProjeto,
+    VistoriaInteligente, SugestaoEtapaIA, MedicaoCriterio, EventoMedicaoCriterio,
+)
