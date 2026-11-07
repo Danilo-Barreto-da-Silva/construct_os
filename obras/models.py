@@ -1,6 +1,8 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
+from django.core.exceptions import ValidationError
+import re
 
 class Torre(models.Model):
     nome = models.CharField(max_length=50)
@@ -73,3 +75,125 @@ class HistoricoMedicao(models.Model):
 
     def __str__(self):
         return f'{self.medicao} - {self.get_origem_display()} em {self.registrado_em:%d/%m/%Y %H:%M}'
+
+
+def validar_mes_referencia(value):
+    """Mês civil no padrão AAAA-MM, sem aceitar valores inválidos."""
+    if not re.fullmatch(r'20\\d{2}-(0[1-9]|1[0-2])', value or ''):
+        raise ValidationError('Informe um mês entre 2000-01 e 2099-12 (AAAA-MM).')
+
+
+class PlanejamentoMensal(models.Model):
+    """Meta mensal por torre; não representa automaticamente uma Curva S ponderada."""
+    torre = models.ForeignKey(Torre, related_name='planejamentos', on_delete=models.PROTECT)
+    mes_referencia = models.CharField(max_length=7, validators=[validar_mes_referencia])
+    percentual_planejado = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    registrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['mes_referencia', 'torre__nome']
+        constraints = [
+            models.UniqueConstraint(fields=['torre', 'mes_referencia'], name='planejamento_mes_torre_unico')
+        ]
+
+    def __str__(self):
+        return f'{self.torre} • {self.mes_referencia}: {self.percentual_planejado}%'
+
+
+class NaoConformidade(models.Model):
+    PRIORIDADES = [
+        ('BAIXA', 'Baixa'), ('MEDIA', 'Média'), ('ALTA', 'Alta'), ('CRITICA', 'Crítica'),
+    ]
+    SITUACOES = [
+        ('ABERTA', 'Aberta'), ('TRATAMENTO', 'Em tratamento'), ('RESOLVIDA', 'Resolvida'),
+    ]
+    medicao = models.ForeignKey(
+        MedicaoMensal, related_name='rncs', on_delete=models.PROTECT
+    )
+    titulo = models.CharField(max_length=140)
+    descricao = models.TextField(max_length=3000)
+    prioridade = models.CharField(max_length=10, choices=PRIORIDADES, default='MEDIA')
+    situacao = models.CharField(max_length=12, choices=SITUACOES, default='ABERTA')
+    acao_corretiva = models.TextField(max_length=3000, blank=True)
+    responsavel = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='rncs_atribuidas'
+    )
+    prazo = models.DateField(null=True, blank=True)
+    aberta_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='rncs_abertas'
+    )
+    aberta_em = models.DateTimeField(auto_now_add=True)
+    atualizada_em = models.DateTimeField(auto_now=True)
+    encerrada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='rncs_encerradas'
+    )
+    encerrada_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-aberta_em', '-id']
+
+    def clean(self):
+        super().clean()
+        if self.situacao == 'RESOLVIDA' and not (self.acao_corretiva or '').strip():
+            raise ValidationError({'acao_corretiva': 'Informe a ação corretiva antes de encerrar a RNC.'})
+
+    def __str__(self):
+        return f'RNC #{self.pk} - {self.titulo}'
+
+
+class EventoRNC(models.Model):
+    rnc = models.ForeignKey(NaoConformidade, related_name='eventos', on_delete=models.PROTECT)
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    situacao_anterior = models.CharField(max_length=12, blank=True)
+    situacao_nova = models.CharField(max_length=12)
+    descricao = models.TextField()
+
+    class Meta:
+        ordering = ['-criado_em', '-id']
+
+
+class ItemFVS(models.Model):
+    RESULTADOS = [
+        ('PENDENTE', 'Não verificado'),
+        ('CONFORME', 'Conforme'),
+        ('NAO_CONFORME', 'Não conforme'),
+        ('NA', 'Não se aplica'),
+    ]
+    medicao = models.ForeignKey(
+        MedicaoMensal, related_name='itens_fvs', on_delete=models.PROTECT
+    )
+    descricao = models.CharField(max_length=180)
+    resultado = models.CharField(max_length=15, choices=RESULTADOS, default='PENDENTE')
+    observacao = models.TextField(max_length=1000, blank=True)
+    verificado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'{self.medicao} - {self.descricao}'
+
+
+class EventoFVS(models.Model):
+    item = models.ForeignKey(ItemFVS, related_name='eventos', on_delete=models.PROTECT)
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    resultado_anterior = models.CharField(max_length=15, blank=True)
+    resultado_novo = models.CharField(max_length=15)
+    observacao = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-criado_em', '-id']
