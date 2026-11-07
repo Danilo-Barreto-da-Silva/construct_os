@@ -382,3 +382,45 @@ class InteligenciaTests(TestCase):
         self.assertContains(resp,'Apartamento 101')
         self.assertContains(resp,'window.print()')
         self.assertContains(resp,'/qr.svg')
+
+    def test_comparacao_lado_a_lado_so_de_documentos_da_tipologia(self):
+        doc=DocumentoProjeto.objects.create(
+            tipologia=self.tipo,disciplina='ARQ',nome='Desenho teste',
+            arquivo=pdf_teste(),enviado_por=self.gestor
+        )
+        visto=VistoriaInteligente.objects.create(
+            apartamento=self.apto,arquivo=video_teste(),enviado_por=self.gestor
+        )
+        self.client.force_login(self.gestor)
+        pagina=self.client.get(reverse('comparar_vistoria_projeto',args=[visto.pk]))
+        self.assertEqual(pagina.status_code,200)
+        self.assertContains(pagina,'Comparação visual assistida')
+        self.assertContains(pagina,'Desenho teste')
+        self.assertContains(pagina,'/assistir/')
+        self.assertContains(pagina,'/visualizar/')
+        pdf=self.client.get(reverse('documento_visualizacao',args=[doc.pk]))
+        self.assertEqual(pdf.status_code,200)
+        self.assertEqual(pdf['Content-Type'],'application/pdf')
+        self.assertEqual(pdf['X-Frame-Options'],'SAMEORIGIN')
+        video=self.client.get(reverse('video_reproducao',args=[visto.pk]))
+        self.assertEqual(video.status_code,200)
+        self.assertEqual(video['Content-Type'],'video/mp4')
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('documento_visualizacao',args=[doc.pk])).status_code,302)
+        self.assertEqual(self.client.get(reverse('video_reproducao',args=[visto.pk])).status_code,302)
+
+    def test_historico_de_medicao_por_criterio_aparece_na_ficha(self):
+        validar_medicao(
+            autor=self.gestor,unidade=self.cfg,criterio=self.c1,
+            mes='2026-11',percentual=40,observacao='Primeira medição fictícia'
+        )
+        validar_medicao(
+            autor=self.gestor,unidade=self.cfg,criterio=self.c1,
+            mes='2026-11',percentual=50,observacao='Segunda medição fictícia'
+        )
+        self.client.force_login(self.gestor)
+        resp=self.client.get(reverse('unidade_inteligente',args=[self.apto.pk]),{'mes':'2026-11'})
+        self.assertContains(resp,'Histórico de medições verificadas')
+        self.assertContains(resp,'Primeira medição fictícia')
+        self.assertContains(resp,'Segunda medição fictícia')
+        self.assertEqual(len(resp.context['historico_medicoes']),2)
