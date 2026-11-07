@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
-from .models import NaoConformidade, ItemFVS, PlanejamentoMensal
+from .models import NaoConformidade, ItemFVS, PlanejamentoMensal, Torre, Apartamento, MedicaoMensal, validar_mes_referencia
 
 
 class StyledModelForm(forms.ModelForm):
@@ -66,5 +66,41 @@ class PlanejamentoMensalForm(StyledModelForm):
     def clean_mes_referencia(self):
         value = self.cleaned_data['mes_referencia']
         from .models import validar_mes_referencia
+        validar_mes_referencia(value)
+        return value
+
+
+class TorreForm(StyledModelForm):
+    class Meta:
+        model = Torre
+        fields = ['nome', 'total_andares']
+        widgets = {'total_andares': forms.NumberInput(attrs={'min': 1, 'max': 200})}
+
+
+class ApartamentoForm(StyledModelForm):
+    class Meta:
+        model = Apartamento
+        fields = ['torre', 'andar', 'numero']
+        widgets = {'andar': forms.NumberInput(attrs={'min': 1, 'max': 200})}
+
+    def clean(self):
+        data = super().clean()
+        torre, andar = data.get('torre'), data.get('andar')
+        if torre and andar and andar > torre.total_andares:
+            self.add_error('andar', 'O pavimento excede o total cadastrado nesta torre.')
+        return data
+
+
+class MedicaoMensalForm(StyledModelForm):
+    class Meta:
+        model = MedicaoMensal
+        fields = ['apartamento', 'mes_referencia', 'etapa_atual', 'percentual_concluido']
+        widgets = {
+            'mes_referencia': forms.TextInput(attrs={'type': 'month', 'placeholder': 'AAAA-MM'}),
+            'percentual_concluido': forms.NumberInput(attrs={'min': '0', 'max': '100'}),
+        }
+
+    def clean_mes_referencia(self):
+        value = self.cleaned_data['mes_referencia']
         validar_mes_referencia(value)
         return value
