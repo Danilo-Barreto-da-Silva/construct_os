@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from .models import (
     Apartamento, ItemFVS, MedicaoMensal, NaoConformidade,
-    PlanejamentoMensal, Torre,
+    PlanejamentoMensal, EventoPlanejamento, Torre,
 )
 
 
@@ -111,3 +111,54 @@ class RelatoriosTests(TestCase):
             )
         self.assertEqual(resp.status_code, 302)
         analisar.assert_not_called()
+
+    def test_meta_registra_historico_de_revisoes(self):
+        self.client.force_login(self.staff)
+        url = reverse('planejamento')
+        dados = {
+            'torre': str(self.torre.pk), 'mes_referencia': '2026-11',
+            'percentual_planejado': '62.50',
+        }
+        self.client.post(url, dados)
+        dados['percentual_planejado'] = '70'
+        self.client.post(url, dados)
+        self.assertEqual(EventoPlanejamento.objects.count(), 2)
+        eventos = list(EventoPlanejamento.objects.order_by('registrado_em', 'pk'))
+        self.assertIsNone(eventos[0].percentual_anterior)
+        self.assertEqual(float(eventos[1].percentual_anterior), 62.5)
+        self.assertEqual(float(eventos[1].percentual_novo), 70.0)
+        self.assertEqual(eventos[1].autor, self.staff)
+
+    def test_rnc_em_atraso_aparece_no_relatorio(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        rnc = NaoConformidade.objects.create(
+            medicao=self.medicao, titulo='Prazo vencido',
+            descricao='Ação ainda pendente', prazo=timezone.localdate() - timedelta(days=1),
+            prioridade='ALTA', aberta_por=self.staff,
+        )
+        self.assertTrue(rnc.em_atraso)
+        self.client.force_login(self.staff)
+        resp = self.client.get(reverse('relatorios'), {'mes': '2026-11'})
+        self.assertEqual(resp.context['rncs_atrasadas'], 1)
+        rnc.situacao = 'RESOLVIDA'
+        rnc.acao_corretiva = 'Ação concluída'
+        rnc.save()
+        self.assertFalse(rnc.em_atraso)
+
+    def test_rnc_aberta_nao_pode_ser_ocultada_mudando_para_pendente(self):
+        NaoConformidade.objects.create(
+            medicao=self.medicao, titulo='Problema em aberto',
+            descricao='Falha identificada', aberta_por=self.auxiliar,
+        )
+        self.medicao.status_iso = 'NAO_CONFORME'
+        self.medicao.save()
+        self.client.force_login(self.auxiliar)
+        resp = self.client.post(reverse('avaliar_apartamento', args=[self.medicao.pk]), {
+            'acao': 'manual', 'percentual': '80', 'status_iso': 'PENDENTE',
+            'etapa_atual': 'Revisão',
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.medicao.refresh_from_db()
+        self.assertEqual(self.medicao.status_iso, 'NAO_CONFORME')
+        self.assertEqual(self.medicao.percentual_concluido, 65)
