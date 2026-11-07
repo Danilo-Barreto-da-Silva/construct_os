@@ -23,6 +23,7 @@ urlpatterns = [
     path('relatorios/', relatorios.relatorios, name='relatorios'),
     path('relatorios/medicoes.csv', relatorios.exportar_medicoes_csv, name='exportar_medicoes_csv'),
     path('relatorios/rncs.csv', relatorios.exportar_rncs_csv, name='exportar_rncs_csv'),
+    path('relatorios/servicos.csv', relatorios.exportar_servicos_csv, name='exportar_servicos_csv'),
     path('apartamento/<int:medicao_id>/avaliar/', views.avaliar_apartamento, name='avaliar_apartamento'),
     path('apartamento/<int:medicao_id>/historico/', views.historico_medicao, name='historico_medicao'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
