@@ -56,7 +56,7 @@ class MedicaoMensal(models.Model):
 
 class HistoricoMedicao(models.Model):
     """Trilha de auditoria dos registros posteriores à implantação deste recurso."""
-    medicao = models.ForeignKey(MedicaoMensal, related_name='historico', on_delete=models.CASCADE)
+    medicao = models.ForeignKey(MedicaoMensal, related_name='historico', on_delete=models.PROTECT)
     autor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     registrado_em = models.DateTimeField(auto_now_add=True)
     origem = models.CharField(max_length=20, choices=[('MANUAL', 'Atualização manual'), ('SUGESTAO_IA', 'Sugestão de IA')], default='MANUAL')
