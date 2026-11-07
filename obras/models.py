@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.conf import settings
 
 class Torre(models.Model):
     nome = models.CharField(max_length=50)
@@ -33,6 +34,8 @@ class MedicaoMensal(models.Model):
     requisito_iso = models.CharField(max_length=80, default='ISO 9001 (8.5.1) / FVS-03')
     status_iso = models.CharField(max_length=20, choices=STATUS_ISO, default='PENDENTE')
     sugestao_ia = models.TextField(blank=True, default='')
+    fvs_aprovada_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='fvs_aprovadas')
+    fvs_aprovada_em = models.DateTimeField(null=True, blank=True)
     laudo_ia = models.TextField(blank=True, default='Aguardando envio de vídeo para diagnóstico.')
     video_vistoria = models.FileField(upload_to='videos_obra/', null=True, blank=True)
 
@@ -50,3 +53,23 @@ class MedicaoMensal(models.Model):
         self.full_clean()
         self.save()
         return False
+
+class HistoricoMedicao(models.Model):
+    """Trilha de auditoria dos registros posteriores à implantação deste recurso."""
+    medicao = models.ForeignKey(MedicaoMensal, related_name='historico', on_delete=models.CASCADE)
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    registrado_em = models.DateTimeField(auto_now_add=True)
+    origem = models.CharField(max_length=20, choices=[('MANUAL', 'Atualização manual'), ('SUGESTAO_IA', 'Sugestão de IA')], default='MANUAL')
+    percentual_anterior = models.IntegerField(default=0)
+    percentual_novo = models.IntegerField(default=0)
+    status_anterior = models.CharField(max_length=20, default='PENDENTE')
+    status_novo = models.CharField(max_length=20, default='PENDENTE')
+    etapa_anterior = models.CharField(max_length=100, blank=True, default='')
+    etapa_nova = models.CharField(max_length=100, blank=True, default='')
+    observacao = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-registrado_em', '-id']
+
+    def __str__(self):
+        return f'{self.medicao} - {self.get_origem_display()} em {self.registrado_em:%d/%m/%Y %H:%M}'
