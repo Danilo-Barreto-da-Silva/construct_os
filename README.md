@@ -6,10 +6,10 @@ Protótipo acadêmico de gestão de obras em **Django**, com medições mensais,
 
 ## Funcionalidades
 
-- **Painel:** avanço físico médio, torres, matriz de unidades, filtros de mês/torre/andar e histórico mensal baseado nas medições existentes.
+- **Painel:** avanço físico médio, torres, matriz de unidades, filtros de mês/torre/andar e histórico mensal baseado nas medições existentes. Indica quantas unidades possuem medição no mês; não projeta prazo nem compara metas quando a cobertura é incompleta.
 - **Qualidade / FVS:** checklist por apartamento e mês, resultado e observação de cada inspeção, autor e histórico. Apenas `is_staff` pode marcar itens conformes e aprovar a FVS global. Itens pendentes e RNCs formais não resolvidas impedem a aprovação.
-- **RNC:** criação vinculada à medição, prioridade, prazo, atribuição, ação corretiva, transição entre Aberta/Em tratamento/Resolvida e histórico de movimentações. Encerrar uma RNC **não** aprova a FVS automaticamente.
-- **Planejamento:** metas mensais acumuladas por torre, inseridas manualmente. O painel compara meta versus realizado quando houver dados correspondentes; sem metas, não inventa valores.
+- **RNC:** criação vinculada à medição, prioridade, prazo e alerta de atraso, atribuição, ação corretiva, transição entre Aberta/Em tratamento/Resolvida e histórico de movimentações. Encerrar uma RNC **não** aprova a FVS automaticamente.
+- **Planejamento:** metas mensais acumuladas por torre, inseridas manualmente e auditadas (valor anterior, novo, autor e data). O painel compara meta versus realizado apenas com cobertura suficiente; sem metas, não inventa valores.
 - **Cadastros:** inclusão de torres, apartamentos e uma medição por apartamento/mês. Novas medições entram com FVS pendente. **Não há exclusão por essas telas.**
 - **Relatórios:** resumo mensal por torre e exportação CSV de medições e RNCs (somente equipe autorizada). O CSV possui mitigação contra fórmulas maliciosas.
 - **IA opcional:** Gemini recebe vídeo apenas quando a chave é configurada; o resultado fica como sugestão e não altera automaticamente as medições nem libera a FVS.
