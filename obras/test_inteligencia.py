@@ -359,7 +359,7 @@ class InteligenciaTests(TestCase):
         )
         self.assertEqual(
             CriterioVistoria.objects.filter(servico__tipologia=criado.tipologia).count(),
-            16
+            17
         )
         self.assertIsNone(progresso_unidade(criado,'2026-11')['percentual'])
         legado.refresh_from_db()
@@ -381,4 +381,4 @@ class InteligenciaTests(TestCase):
         self.assertEqual(resp.status_code,200)
         self.assertContains(resp,'Apartamento 101')
         self.assertContains(resp,'window.print()')
-        self.assertContains(resp,'imagem_qr')
+        self.assertContains(resp,'/qr.svg')
