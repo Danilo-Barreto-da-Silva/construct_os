@@ -99,8 +99,10 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div class="bg-[#11192c] border border-slate-800 rounded-xl p-5 flex items-center justify-between shadow-lg">
                 <div>
-                    <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">AVANÇO FÍSICO GERAL</p>
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">MÉDIA DE EXECUÇÃO FÍSICA</p>
                     <h2 class="text-4xl font-black text-white mt-2">{{ avanco_atual }}%</h2>
+                    <p class="text-xs mt-1 text-slate-400">Medições no filtro: {{ total_med }} de {{ total_unidades }} unidades</p>
+                    {% if not cobertura_completa %}<p class="text-[11px] text-amber-300 mt-1">Cobertura incompleta: média parcial, não representa toda a obra.</p>{% endif %}
                     <p class="text-xs text-cyan-400 mt-2 font-semibold">{% if ritmo_mensal != None %}{{ ritmo_mensal }} pontos percentuais em relação ao mês anterior{% else %}Sem histórico anterior para comparação{% endif %}</p>
                 </div>
                 <div id="radialChart" class="w-32 h-32"></div>
@@ -114,7 +116,7 @@
                     </div>
                 </div>
                 <div class="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs">
-                    <span class="text-slate-400">Falta construir: <strong class="text-white">{{ falta_construir }}%</strong></span>
+                    <span class="text-slate-400">{% if cobertura_completa %}Falta em média: <strong class="text-white">{{ falta_construir }}%</strong>{% else %}Aguardando cobertura mensal completa{% endif %}</span>
                     <span class="text-amber-400 font-bold">{% if meses_para_terminar != None %}⏱️ Estimativa linear: {{ meses_para_terminar }} meses{% else %}Prazo indisponível{% endif %}</span>
                 </div>
             </div>
@@ -208,7 +210,7 @@
                     <h3 class="text-xs uppercase tracking-wider text-slate-400 font-bold">ANÁLISE DE EVOLUÇÃO DA OBRA</h3>
                     <p class="text-lg font-bold text-white mt-1">{% if existe_planejamento %}Planejado vs. realizado{% else %}Evolução física registrada{% endif %}</p>
                     <div id="scurveChart" class="mt-2"></div>
-                    <p class="text-xs text-slate-400">Média simples das medições cadastradas por mês. {% if existe_planejamento %}A linha planejada utiliza metas registradas; meses sem cobertura completa não são estimados.{% else %}Sem metas cadastradas para este filtro. {% endif %}Uma Curva S real exige cronograma e pesos das atividades.</p>
+                    <p class="text-xs text-slate-400">Média simples das medições cadastradas por mês, que podem abranger quantidades diferentes de apartamentos. {% if existe_planejamento %}A linha planejada utiliza metas registradas; meses sem cobertura completa não são comparados.{% else %}Sem metas cadastradas para este filtro. {% endif %}Uma Curva S real exige cronograma e pesos das atividades.</p>
                     <a class="text-xs text-cyan-300 hover:underline mt-2 inline-block" href="{% url 'planejamento' %}">Gerenciar metas físicas →</a>
                 </div>
 
