@@ -134,7 +134,44 @@
       </thead>
       <tbody class="divide-y divide-slate-800">
       {% for servico in curva.servicos %}
-        <tr><td class="p-2 font-mono text-cyan-300">{{ servico.codigo }}</td><td class="p-2">{{ servico.descricao }}</td><td class="p-2 text-right font-bold">{{ servico.peso_percentual }}%</td></tr>
+        <tr>
+          <td class="p-2 font-mono text-cyan-300">{{ servico.codigo }}</td>
+          <td class="p-2">
+            {{ servico.descricao }}
+            {% if pode_editar %}
+            <details class="mt-2">
+              <summary class="cursor-pointer text-cyan-300 text-xs">Corrigir cadastro</summary>
+              <form method="post" action="{% url 'planejamento_fisico' %}?torre={{ torre.pk }}" class="mt-2 space-y-2 bg-[#090e17] p-3 rounded-lg border border-slate-800">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="editar_servico">
+                <input type="hidden" name="servico_id" value="{{ servico.pk }}">
+                <label class="block text-xs">Descrição
+                  <input name="descricao" maxlength="160" required value="{{ servico.descricao }}" class="block w-full bg-slate-900 border border-slate-600 text-white rounded p-2 mt-1">
+                </label>
+                <label class="block text-xs">Peso físico (%)
+                  <input name="peso_percentual" type="number" step="0.01" min="0.01" max="100" required value="{{ servico.peso_percentual|stringformat:'.2f' }}" class="block w-full bg-slate-900 border border-slate-600 text-white rounded p-2 mt-1">
+                </label>
+                <p class="text-xs text-amber-200">Após o primeiro lançamento mensal, o peso é congelado para preservar a série histórica. A descrição ainda pode ser corrigida.</p>
+                <button type="submit" class="btn btn-muted">Salvar correção</button>
+              </form>
+            </details>
+            {% endif %}
+            <details class="mt-2">
+              <summary class="cursor-pointer text-slate-400 text-xs">Histórico do cadastro</summary>
+              <div class="space-y-2 mt-2">
+                {% for revisao in servico.revisoes.all %}
+                <p class="text-xs text-slate-300 border-l-2 border-slate-600 pl-2">
+                  {{ revisao.criado_em|date:"d/m/Y H:i" }} ·
+                  {% if revisao.autor %}{{ revisao.autor.get_username }}{% else %}Usuário excluído{% endif %}<br>
+                  Peso {{ revisao.peso_anterior }} → {{ revisao.peso_novo }}%<br>
+                  {{ revisao.descricao_anterior }} → {{ revisao.descricao_nova }}
+                </p>
+                {% empty %}<p class="text-xs text-slate-500">Sem revisões de cadastro.</p>{% endfor %}
+              </div>
+            </details>
+          </td>
+          <td class="p-2 text-right font-bold">{{ servico.peso_percentual }}%</td>
+        </tr>
       {% empty %}
         <tr><td colspan="3" class="p-3 text-slate-400">Ainda não há serviços cadastrados para esta torre.</td></tr>
       {% endfor %}
