@@ -7,9 +7,9 @@ from django.db.models.deletion import ProtectedError
 from django.test import TestCase
 from django.urls import reverse
 
-from .curva_s import cadastrar_servico, consolidar_curva, registrar_marco
+from .curva_s import cadastrar_servico, consolidar_curva, registrar_marco, atualizar_servico
 from .models import (
-    EventoMarcoServico, MarcoServico, ServicoObra, Torre,
+    EventoMarcoServico, EventoServicoObra, MarcoServico, ServicoObra, Torre,
 )
 
 
@@ -253,3 +253,54 @@ class CurvaSTests(TestCase):
         self.assertIn('text/csv', resp['Content-Type'])
         self.assertIn("'=SOMAR(1;1)", resp.content.decode('utf-8-sig'))
         self.assertIn('Planejado acumulado', resp.content.decode('utf-8-sig'))
+
+    def test_edicao_de_servico_antes_de_medir_gera_auditoria(self):
+        servico = self.servico('EST', '40')
+        servico, alterou = atualizar_servico(
+            autor=self.gestor, servico_id=servico.pk,
+            descricao='Estrutura revisada', peso_percentual=Decimal('50'),
+        )
+        self.assertTrue(alterou)
+        self.assertEqual(servico.peso_percentual, Decimal('50'))
+        self.assertEqual(servico.descricao, 'Estrutura revisada')
+        evento = EventoServicoObra.objects.get(servico=servico)
+        self.assertEqual(evento.autor, self.gestor)
+        self.assertEqual(evento.peso_anterior, Decimal('40'))
+        self.assertEqual(evento.peso_novo, Decimal('50'))
+
+    def test_peso_congelado_apos_lancamento_mas_descricao_pode_ser_corrigida(self):
+        servico = self.servico('EST', '100')
+        self.marco(servico, '2026-11', previsto=20)
+        with self.assertRaises(ValidationError):
+            atualizar_servico(
+                autor=self.gestor, servico_id=servico.pk,
+                descricao='Estrutura', peso_percentual=Decimal('90'),
+            )
+        servico.refresh_from_db()
+        self.assertEqual(servico.peso_percentual, Decimal('100'))
+        self.assertEqual(EventoServicoObra.objects.count(), 0)
+        _, alterou = atualizar_servico(
+            autor=self.gestor, servico_id=servico.pk,
+            descricao='Estrutura revisada', peso_percentual=Decimal('100'),
+        )
+        self.assertTrue(alterou)
+        self.assertEqual(EventoServicoObra.objects.count(), 1)
+
+    def test_formulario_de_edicao_tem_permissao_e_evita_trocar_peso_congelado(self):
+        servico = self.servico('EST', '100')
+        url = reverse('planejamento_fisico') + f'?torre={self.torre.pk}'
+        dados = {'acao': 'editar_servico', 'servico_id': servico.pk,
+                 'descricao': 'Estrutura final', 'peso_percentual': '100'}
+        self.client.force_login(self.auxiliar)
+        self.assertEqual(self.client.post(url, dados).status_code, 403)
+        self.client.force_login(self.gestor)
+        self.assertEqual(self.client.post(url, dados).status_code, 302)
+        servico.refresh_from_db()
+        self.assertEqual(servico.descricao, 'Estrutura final')
+        self.assertEqual(EventoServicoObra.objects.count(), 1)
+        self.marco(servico, '2026-11', realizado=20)
+        dados['peso_percentual'] = '90'
+        self.assertEqual(self.client.post(url, dados).status_code, 302)
+        servico.refresh_from_db()
+        self.assertEqual(servico.peso_percentual, Decimal('100'))
+        self.assertEqual(EventoServicoObra.objects.count(), 1)
