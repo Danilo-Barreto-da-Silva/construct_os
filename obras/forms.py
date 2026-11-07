@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 
-from .models import NaoConformidade, ItemFVS, PlanejamentoMensal, Torre, Apartamento, MedicaoMensal, validar_mes_referencia
+from .models import NaoConformidade, ItemFVS, PlanejamentoMensal, Torre, Apartamento, MedicaoMensal, ServicoObra, MarcoServico, validar_mes_referencia
 
 
 class StyledModelForm(forms.ModelForm):
@@ -104,3 +104,59 @@ class MedicaoMensalForm(StyledModelForm):
         value = self.cleaned_data['mes_referencia']
         validar_mes_referencia(value)
         return value
+
+
+
+class ServicoObraForm(StyledModelForm):
+    class Meta:
+        model = ServicoObra
+        fields = ['torre', 'codigo', 'descricao', 'peso_percentual']
+        labels = {
+            'torre': 'Torre', 'codigo': 'Código do serviço',
+            'descricao': 'Descrição do serviço',
+            'peso_percentual': 'Peso físico (%)',
+        }
+        widgets = {
+            'peso_percentual': forms.NumberInput(attrs={'min': '0.01', 'max': '100', 'step': '0.01'}),
+        }
+
+
+class MarcoServicoForm(StyledModelForm):
+    observacao = forms.CharField(
+        label='Justificativa da alteração (opcional)',
+        max_length=1000, required=False,
+        widget=forms.Textarea(attrs={'rows': 2, 'maxlength': 1000}),
+    )
+
+    class Meta:
+        model = MarcoServico
+        fields = ['servico', 'mes_referencia', 'previsto_acumulado', 'realizado_acumulado']
+        labels = {
+            'servico': 'Serviço',
+            'mes_referencia': 'Mês de referência',
+            'previsto_acumulado': 'Planejado acumulado do serviço (%)',
+            'realizado_acumulado': 'Executado acumulado do serviço (%)',
+        }
+        widgets = {
+            'mes_referencia': forms.TextInput(attrs={'type': 'month'}),
+            'previsto_acumulado': forms.NumberInput(attrs={'min': '0', 'max': '100', 'step': '0.01'}),
+            'realizado_acumulado': forms.NumberInput(attrs={'min': '0', 'max': '100', 'step': '0.01'}),
+        }
+
+    def __init__(self, *args, torre=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        servicos = ServicoObra.objects.select_related('torre')
+        if torre is not None:
+            servicos = servicos.filter(torre=torre)
+        self.fields['servico'].queryset = servicos.order_by('torre__nome', 'codigo')
+        self.fields['previsto_acumulado'].help_text = (
+            'Opcional se preencher Executado. Em branco preserva o valor anterior.'
+        )
+        self.fields['realizado_acumulado'].help_text = (
+            'Opcional se preencher Planejado. Em branco preserva o valor anterior.'
+        )
+
+    def clean_mes_referencia(self):
+        mes = self.cleaned_data['mes_referencia']
+        validar_mes_referencia(mes)
+        return mes
