@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from .forms import AbrirRNCForm, TratarRNCForm, ItemFVSForm, PlanejamentoMensalForm, TorreForm, ApartamentoForm, MedicaoMensalForm
 from .models import (
     MedicaoMensal, NaoConformidade, ItemFVS,
-    PlanejamentoMensal, Torre, Apartamento, HistoricoMedicao,
+    PlanejamentoMensal, Torre, Apartamento, HistoricoMedicao, EventoPlanejamento,
 )
 from .qualidade import abrir_rnc, atualizar_rnc, salvar_item_fvs
 
@@ -189,22 +189,30 @@ def planejamento(request):
         dados = request.POST
         torre_id = dados.get('torre', '')
         mes = dados.get('mes_referencia', '')
-        existente = None
-        if torre_id.isdecimal() and len(mes) == 7:
-            existente = PlanejamentoMensal.objects.filter(
-                torre_id=int(torre_id), mes_referencia=mes
-            ).first()
-        form = PlanejamentoMensalForm(request.POST, instance=existente)
-        if form.is_valid():
-            item = form.save(commit=False)
-            item.registrado_por = request.user
-            item.save()
-            messages.success(request, 'Meta planejada salva para a torre e o mês.')
-            return redirect('planejamento')
+        with transaction.atomic():
+            existente = None
+            if torre_id.isdecimal() and len(mes) == 7:
+                existente = PlanejamentoMensal.objects.select_for_update().filter(
+                    torre_id=int(torre_id), mes_referencia=mes
+                ).first()
+            valor_anterior = existente.percentual_planejado if existente else None
+            form = PlanejamentoMensalForm(request.POST, instance=existente)
+            if form.is_valid():
+                item = form.save(commit=False)
+                item.registrado_por = request.user
+                item.save()
+                if valor_anterior != item.percentual_planejado:
+                    EventoPlanejamento.objects.create(
+                        planejamento=item, autor=request.user,
+                        percentual_anterior=valor_anterior,
+                        percentual_novo=item.percentual_planejado,
+                    )
+                messages.success(request, 'Meta planejada salva e alteração rastreada.')
+                return redirect('planejamento')
 
     metas = PlanejamentoMensal.objects.select_related(
         'torre', 'registrado_por'
-    ).order_by('-mes_referencia', 'torre__nome')[:120]
+    ).prefetch_related('eventos__autor').order_by('-mes_referencia', 'torre__nome')[:120]
     return render(request, 'obras/planejamento.html', {
         'form': form, 'metas': metas, 'pode_editar': request.user.is_staff
     })
