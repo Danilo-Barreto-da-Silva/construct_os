@@ -162,3 +162,25 @@ class RelatoriosTests(TestCase):
         self.medicao.refresh_from_db()
         self.assertEqual(self.medicao.status_iso, 'NAO_CONFORME')
         self.assertEqual(self.medicao.percentual_concluido, 65)
+
+    def test_meses_parciais_nao_projetam_prazo_ou_meta(self):
+        # Outubro e novembro mediram apenas 1 dos 2 apartamentos cadastrados.
+        Apartamento.objects.create(torre=self.torre, andar=2, numero='202')
+        MedicaoMensal.objects.create(
+            apartamento=self.apto, mes_referencia='2026-10',
+            percentual_concluido=40,
+        )
+        PlanejamentoMensal.objects.create(
+            torre=self.torre, mes_referencia='2026-11',
+            percentual_planejado=80,
+        )
+        self.client.force_login(self.staff)
+        painel = self.client.get(reverse('painel_principal'), {'mes': '2026-11'})
+        self.assertEqual(painel.status_code, 200)
+        self.assertEqual(painel.context['total_med'], 1)
+        self.assertEqual(painel.context['total_unidades'], 2)
+        self.assertFalse(painel.context['cobertura_completa'])
+        self.assertIsNone(painel.context['ritmo_mensal'])
+        self.assertIsNone(painel.context['meses_para_terminar'])
+        self.assertEqual(painel.context['metas_grafico'][-1], None)
+        self.assertContains(painel, 'Cobertura incompleta')
