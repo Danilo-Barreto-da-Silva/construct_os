@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
                 ('etapa_nova', models.CharField(blank=True, default='', max_length=100)),
                 ('observacao', models.TextField(blank=True, default='')),
                 ('autor', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
-                ('medicao', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='historico', to='obras.medicaomensal')),
+                ('medicao', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='historico', to='obras.medicaomensal')),
             ],
             options={'ordering': ['-registrado_em', '-id']},
         ),
