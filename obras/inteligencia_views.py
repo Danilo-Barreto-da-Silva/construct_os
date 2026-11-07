@@ -1,5 +1,6 @@
 """Páginas seguras de projetos, QR Code e revisão de vistoria multimodal."""
 import hashlib
+from datetime import timedelta
 from io import BytesIO
 from django.conf import settings
 from django.contrib import messages
@@ -188,6 +189,13 @@ def imagem_qr(request,apartamento_id):
 @require_POST
 def enviar_video_inteligente(request,apartamento_id):
     cfg = get_object_or_404(UnidadeInteligente,apartamento_id=apartamento_id,ativo=True)
+    # Limite simples por conta e unidade; produção exige também rate limiting
+    # reverso, quotas de armazenamento e antivírus nos uploads.
+    desde = timezone.now() - timedelta(hours=24)
+    if (VistoriaInteligente.objects.filter(enviado_por=request.user,criado_em__gte=desde).count() >= 12
+        or VistoriaInteligente.objects.filter(apartamento=cfg.apartamento,criado_em__gte=desde).count() >= 20):
+        messages.error(request,'Limite diário de gravações alcançado. Aguarde antes de enviar outro vídeo.')
+        return redirect('unidade_inteligente',apartamento_id=apartamento_id)
     form = VideoVistoriaForm(request.POST,request.FILES)
     if not form.is_valid():
         messages.error(request,'Vídeo não enviado: ' + form.errors.as_text()[:400])
