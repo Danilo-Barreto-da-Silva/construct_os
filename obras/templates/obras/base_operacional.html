@@ -25,7 +25,8 @@
             <nav aria-label="Navegação principal" class="flex items-center flex-wrap gap-3 text-sm">
                 <a class="hover:text-cyan-300" href="{% url 'painel_principal' %}">Painel</a>
                 <a class="hover:text-cyan-300" href="{% url 'lista_rncs' %}">RNCs</a>
-                <a class="hover:text-cyan-300" href="{% url 'planejamento' %}">Planejamento</a>
+                <a class="hover:text-cyan-300" href="{% url 'planejamento' %}">Metas simples</a>
+                <a class="hover:text-cyan-300" href="{% url 'planejamento_fisico' %}">Curva S física</a>
                 {% if request.user.is_staff %}<a class="hover:text-cyan-300" href="{% url 'cadastros' %}">Cadastros</a><a class="hover:text-cyan-300" href="{% url 'relatorios' %}">Relatórios</a>{% endif %}
                 <form method="post" action="{% url 'logout_sistema' %}" class="inline">
                     {% csrf_token %}
