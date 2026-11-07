@@ -1,0 +1,49 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}Metas de planejamento{% endblock %}
+{% block content %}
+<div>
+  <p class="text-cyan-400 uppercase tracking-widest text-xs font-semibold">Planejamento físico</p>
+  <h1 class="text-3xl font-black mt-1">Metas mensais por torre</h1>
+  <p class="text-slate-400 text-sm mt-2">Cadastre percentuais planejados para comparar com o avanço registrado no painel. Valores não cadastrados não serão estimados.</p>
+</div>
+<div class="grid lg:grid-cols-3 gap-5">
+  {% if pode_editar %}
+  <section class="panel p-6 h-fit">
+    <h2 class="font-bold text-xl mb-3">Cadastrar ou atualizar meta</h2>
+    <p class="text-xs text-slate-400 mb-4">Uma meta por torre e mês. Ao informar novamente a mesma combinação, a meta é atualizada.</p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Salvar meta</button>
+    </form>
+  </section>
+  {% else %}
+  <section class="panel p-6 h-fit">
+    <p class="text-amber-300 text-sm">O cadastro e a alteração de metas são restritos à equipe autorizada.</p>
+  </section>
+  {% endif %}
+  <section class="panel lg:col-span-2 overflow-x-auto">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-[#0d1424] text-xs text-slate-400 uppercase">
+        <tr><th class="p-4">Mês</th><th class="p-4">Torre</th><th class="p-4">Meta prevista</th><th class="p-4">Atualizada por</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+        {% for item in metas %}
+        <tr>
+          <td class="p-4">{{ item.mes_referencia }}</td>
+          <td class="p-4">{{ item.torre.nome }}</td>
+          <td class="p-4 font-bold text-cyan-400">{{ item.percentual_planejado }}%</td>
+          <td class="p-4 text-slate-400">{% if item.registrado_por %}{{ item.registrado_por.get_username }}{% else %}Não informado{% endif %}<span class="block text-xs">{{ item.atualizado_em|date:"d/m/Y H:i" }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="p-8 text-center text-slate-400">Nenhuma meta registrada. O painel mostrará apenas a execução realizada até cadastrar planejamento.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+<div class="panel p-5 text-sm text-slate-400">
+  <h2 class="font-bold text-white mb-2">Como interpretar a comparação?</h2>
+  <p>Cada percentual é uma meta acumulada de avanço físico para o fim do mês informado. Quando todas as torres possuírem meta no mês, o painel geral poderá exibir a média simples. Não se trata ainda de uma Curva S físico-financeira ponderada por atividades.</p>
+</div>
+{% endblock %}
