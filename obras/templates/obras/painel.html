@@ -33,6 +33,7 @@
         <div class="flex items-center flex-wrap gap-3 mt-2 sm:mt-0">
             <a href="{% url 'lista_rncs' %}" class="bg-rose-500/10 text-rose-300 border border-rose-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-rose-500/20"><i class="fa-solid fa-clipboard-list mr-1"></i> RNCs</a>
             <a href="{% url 'planejamento' %}" class="bg-sky-500/10 text-sky-300 border border-sky-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-sky-500/20"><i class="fa-solid fa-chart-line mr-1"></i> Planejamento</a>
+            <a href="{% url 'planejamento_fisico' %}" class="bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-emerald-500/20"><i class="fa-solid fa-chart-area mr-1"></i> Curva S física</a>
             {% if request.user.is_staff %}<a href="{% url 'cadastros' %}" class="bg-slate-700/40 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-700"><i class="fa-solid fa-plus mr-1"></i> Cadastros</a>
             <a href="{% url 'relatorios' %}" class="bg-slate-700/40 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-700"><i class="fa-solid fa-file-csv mr-1"></i> Relatórios</a>{% endif %}
             {% if pode_gerar_demo %}<form method="POST" action="{% url 'popular_dados_demo' %}" onsubmit="return confirm('Criar dados fictícios neste banco vazio?')">
@@ -212,7 +213,7 @@
                     <div id="scurveChart" class="mt-2"></div>
                     <div class="text-[11px] text-slate-400 flex flex-wrap gap-x-3 gap-y-1 mb-2">{% for amostra in cobertura_grafico %}<span>{{ amostra.mes }}: {{ amostra.quantidade }} de {{ amostra.total }} unidades</span>{% endfor %}</div>
                     <p class="text-xs text-slate-400">Cada ponto representa a média das medições daquele mês. Os pontos não são ligados porque podem abranger apartamentos diferentes. {% if existe_planejamento %}A linha planejada utiliza metas registradas; meses sem cobertura completa não são comparados.{% else %}Sem metas cadastradas para este filtro. {% endif %}Uma Curva S real exige cronograma e pesos das atividades.</p>
-                    <a class="text-xs text-cyan-300 hover:underline mt-2 inline-block" href="{% url 'planejamento' %}">Gerenciar metas físicas →</a>
+                    <div class="flex flex-wrap gap-4 mt-2"><a class="text-xs text-cyan-300 hover:underline" href="{% url 'planejamento' %}">Metas mensais simples →</a><a class="text-xs text-emerald-300 hover:underline" href="{% url 'planejamento_fisico' %}">Curva S ponderada por serviços →</a></div>
                 </div>
 
                 <div class="bg-[#090e17] border border-slate-800 rounded-lg p-4 mt-4 space-y-2 text-xs">
