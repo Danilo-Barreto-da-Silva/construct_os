@@ -330,3 +330,14 @@ class CurvaSTests(TestCase):
             'torre': self.torre.pk, 'andar': '1', 'mes': '2026-11',
         })
         self.assertIsNone(andar.context['curva_servicos'])
+
+    def test_mes_sem_lancamento_permanece_lacuna_na_linha_temporal(self):
+        servico = self.servico()
+        self.marco(servico, '2026-10', previsto=10, realizado=10)
+        self.marco(servico, '2026-12', previsto=70, realizado=50)
+        curva = consolidar_curva(self.torre)
+        self.assertEqual(curva['meses'], ['2026-10', '2026-11', '2026-12'])
+        self.assertEqual(curva['previstos'], [10.0, None, 70.0])
+        self.assertEqual(curva['realizados'], [10.0, None, 50.0])
+        self.assertEqual(curva['linhas'][1]['n_previsto'], 0)
+        self.assertEqual(curva['linhas'][1]['n_realizado'], 0)
