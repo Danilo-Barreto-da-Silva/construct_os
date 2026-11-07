@@ -316,3 +316,19 @@ class EventoMarcoServico(models.Model):
 
     class Meta:
         ordering = ['-criado_em', '-id']
+
+
+class EventoServicoObra(models.Model):
+    """Auditoria das correções de descrição e peso de serviços cadastrados."""
+    servico = models.ForeignKey(ServicoObra, related_name='revisoes', on_delete=models.PROTECT)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    descricao_anterior = models.CharField(max_length=160)
+    descricao_nova = models.CharField(max_length=160)
+    peso_anterior = models.DecimalField(max_digits=5, decimal_places=2)
+    peso_novo = models.DecimalField(max_digits=5, decimal_places=2)
+
+    class Meta:
+        ordering = ['-criado_em', '-id']
