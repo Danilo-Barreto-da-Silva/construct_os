@@ -1,0 +1,78 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}Não conformidades{% endblock %}
+{% block content %}
+<div class="flex flex-wrap justify-between items-end gap-3">
+  <div>
+    <p class="text-xs font-semibold tracking-widest text-cyan-400 uppercase">Gestão da qualidade</p>
+    <h1 class="text-3xl font-black mt-1">Registro de não conformidades</h1>
+    <p class="text-sm text-slate-400 mt-2">RNCs cadastradas, responsáveis, ações corretivas e prazos.</p>
+  </div>
+  <a class="btn btn-muted" href="{% url 'painel_principal' %}">Selecionar apartamento no painel</a>
+</div>
+{% if avisos_sem_rnc %}
+<div class="panel p-4 border-l-4 border-amber-500 text-sm">
+  Existem <strong>{{ avisos_sem_rnc }}</strong> medições marcadas como não conformes, mas ainda sem uma RNC formal cadastrada. Isso inclui registros antigos de demonstração. Para cadastrar uma RNC, abra o apartamento no painel e clique em <strong>Registrar RNC</strong>.
+</div>
+{% endif %}
+<form method="get" class="panel grid md:grid-cols-4 gap-3 p-4 items-end">
+  <div>
+    <label for="situacao" class="block mb-1">Situação</label>
+    <select id="situacao" name="situacao" class="w-full bg-[#090e17] border border-slate-700 rounded-lg p-2 text-sm">
+      <option value="PENDENTES" {% if situacao == 'PENDENTES' %}selected{% endif %}>Abertas + em tratamento</option>
+      <option value="ABERTA" {% if situacao == 'ABERTA' %}selected{% endif %}>Abertas</option>
+      <option value="TRATAMENTO" {% if situacao == 'TRATAMENTO' %}selected{% endif %}>Em tratamento</option>
+      <option value="RESOLVIDA" {% if situacao == 'RESOLVIDA' %}selected{% endif %}>Resolvidas</option>
+      <option value="TODAS" {% if situacao == 'TODAS' %}selected{% endif %}>Todas</option>
+    </select>
+  </div>
+  <div>
+    <label for="torre" class="block mb-1">Torre</label>
+    <select id="torre" name="torre" class="w-full bg-[#090e17] border border-slate-700 rounded-lg p-2 text-sm">
+      <option value="">Todas as torres</option>
+      {% for t in torres %}
+      <option value="{{ t.pk }}" {% if torre_id == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="busca" class="block mb-1">Buscar</label>
+    <input id="busca" name="busca" maxlength="100" value="{{ busca }}" placeholder="Título ou apartamento" class="w-full bg-[#090e17] border border-slate-700 rounded-lg p-2 text-sm">
+  </div>
+  <button class="btn btn-primary" type="submit">Filtrar registros</button>
+</form>
+<div class="panel overflow-x-auto">
+  <table class="w-full text-sm text-left">
+    <thead class="bg-[#0d1424] text-xs uppercase tracking-wide text-slate-400">
+      <tr><th class="p-4">RNC / Apartamento</th><th class="p-4">Prioridade</th><th class="p-4">Situação</th><th class="p-4">Responsável</th><th class="p-4">Prazo</th><th class="p-4"></th></tr>
+    </thead>
+    <tbody class="divide-y divide-slate-800">
+      {% for rnc in pagina %}
+      <tr class="hover:bg-slate-800/30">
+        <td class="p-4">
+          <div class="font-bold text-white">#{{ rnc.pk }} — {{ rnc.titulo }}</div>
+          <div class="text-slate-400 text-xs mt-1">{{ rnc.medicao.apartamento.torre.nome }} · Apto {{ rnc.medicao.apartamento.numero }} · {{ rnc.medicao.mes_referencia }}</div>
+        </td>
+        <td class="p-4 {% if rnc.prioridade == 'CRITICA' or rnc.prioridade == 'ALTA' %}text-rose-400{% else %}text-slate-300{% endif %}">{{ rnc.get_prioridade_display }}</td>
+        <td class="p-4">
+          <span class="{% if rnc.situacao == 'RESOLVIDA' %}text-emerald-400{% elif rnc.situacao == 'ABERTA' %}text-rose-400{% else %}text-amber-300{% endif %}">{{ rnc.get_situacao_display }}</span>
+        </td>
+        <td class="p-4">{% if rnc.responsavel %}{{ rnc.responsavel.get_username }}{% else %}<span class="text-slate-500">Não atribuído</span>{% endif %}</td>
+        <td class="p-4">{% if rnc.prazo %}{{ rnc.prazo|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+        <td class="p-4"><a class="text-cyan-300 hover:underline whitespace-nowrap" href="{% url 'detalhe_rnc' rnc.pk %}">Abrir →</a></td>
+      </tr>
+      {% empty %}
+      <tr><td class="p-8 text-center text-slate-400" colspan="6">Nenhuma RNC formal encontrada para estes filtros.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if pagina.paginator.num_pages > 1 %}
+<div class="flex items-center justify-between gap-3 text-sm">
+  <span class="text-slate-400">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  <div class="flex gap-3">
+    {% if pagina.has_previous %}<a class="btn btn-muted" href="?situacao={{ situacao|urlencode }}&amp;torre={{ torre_id|urlencode }}&amp;busca={{ busca|urlencode }}&amp;pagina={{ pagina.previous_page_number }}">Anterior</a>{% endif %}
+    {% if pagina.has_next %}<a class="btn btn-muted" href="?situacao={{ situacao|urlencode }}&amp;torre={{ torre_id|urlencode }}&amp;busca={{ busca|urlencode }}&amp;pagina={{ pagina.next_page_number }}">Próxima</a>{% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
