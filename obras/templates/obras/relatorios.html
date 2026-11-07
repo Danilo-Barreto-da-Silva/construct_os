@@ -20,12 +20,13 @@
   </div>
   <button class="btn btn-primary" type="submit">Aplicar filtros</button>
 </form>
-<div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+<div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
   <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">Medições</p><p class="text-2xl font-extrabold mt-2">{{ totais.quantidade }}</p></section>
   <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">Avanço físico médio</p><p class="text-2xl text-cyan-400 font-extrabold mt-2">{% if totais.avanco != None %}{{ totais.avanco|floatformat:1 }}%{% else %}—{% endif %}</p></section>
   <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">FVSs pendentes</p><p class="text-2xl text-amber-300 font-extrabold mt-2">{{ totais.pendentes }}</p></section>
   <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">FVSs não conformes</p><p class="text-2xl text-rose-400 font-extrabold mt-2">{{ totais.nao_conformes }}</p></section>
   <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">RNCs formais abertas</p><p class="text-2xl text-rose-400 font-extrabold mt-2">{{ rncs_abertas }}</p></section>
+  <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">RNCs em atraso</p><p class="text-2xl text-amber-300 font-extrabold mt-2">{{ rncs_atrasadas }}</p></section>
 </div>
 <section class="panel p-5">
   <div class="flex flex-wrap justify-between gap-3 items-center mb-4">
