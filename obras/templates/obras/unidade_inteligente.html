@@ -1,0 +1,225 @@
+{% extends "obras/base_operacional.html" %}
+{% block title %}Vistoria do apartamento{% endblock %}
+{% block content %}
+<div class="flex flex-wrap justify-between gap-3 items-center">
+ <div>
+  <p class="text-cyan-400 text-xs uppercase tracking-widest font-bold">Vistoria inteligente por apartamento</p>
+  <h1 class="text-3xl font-black mt-1">{{ cfg.apartamento }}</h1>
+  <p class="text-slate-400 mt-1 text-sm">{{ cfg.tipologia.codigo }} · {{ cfg.tipologia.nome }}</p>
+ </div>
+ <a href="{% url 'catalogo_inteligente' %}?tipo={{ cfg.tipologia_id }}" class="btn btn-muted">Parâmetros e projetos</a>
+</div>
+
+<section class="grid md:grid-cols-3 gap-4">
+ <div class="panel p-5">
+  <p class="text-slate-400 text-xs uppercase">Avanço físico verificado</p>
+  <p class="text-3xl font-black text-cyan-400 mt-2">
+   {% if progresso.percentual != None %}{{ progresso.percentual }}%{% else %}Indisponível{% endif %}
+  </p>
+  <p class="text-slate-400 text-xs mt-2">Calculado pelos critérios validados até {{ mes }}; não é o percentual oficial da FVS.</p>
+ </div>
+ <div class="panel p-5">
+  <p class="text-slate-400 text-xs uppercase">Cobertura técnica</p>
+  <p class="text-2xl font-black mt-2">{{ progresso.n_validados }} / {{ progresso.n_criterios }}</p>
+  <p class="text-xs text-slate-400 mt-2">Critérios com medição confirmada, sem tratar ausência como 0%.</p>
+ </div>
+ <div class="panel p-5">
+  <p class="text-slate-400 text-xs uppercase">Condições do cálculo</p>
+  {% if progresso.pesos_ok and progresso.criterios_ok %}
+   <p class="text-emerald-400 font-bold mt-2">Pesos configurados</p>
+  {% else %}
+   <p class="text-amber-300 font-bold mt-2">Configuração incompleta</p>
+  {% endif %}
+  <p class="text-slate-400 text-xs mt-2">Pesos de serviços: {{ progresso.peso_total }}% / 100%. Cada serviço também exige critérios somando 100%.</p>
+ </div>
+</section>
+
+<div class="grid lg:grid-cols-3 gap-4">
+ <section class="panel p-5 lg:col-span-2 space-y-4">
+  <h2 class="text-xl font-bold">Gravar vistoria com áudio</h2>
+  <p class="text-sm text-slate-400">Ao filmar, mostre cada ambiente e narre o que foi instalado. A narração é uma declaração, não comprovação visual. A gravação só será enviada ao clicar em <strong>Enviar vistoria</strong>.</p>
+  <div class="rounded-lg bg-black/70 border border-slate-700 overflow-hidden">
+   <video id="cameraVideo" class="w-full max-h-80" autoplay muted playsinline controls></video>
+  </div>
+  <div class="flex flex-wrap gap-2 items-center">
+   <button type="button" class="btn btn-primary" id="iniciarGravacao">Iniciar câmera + áudio</button>
+   <button type="button" class="btn btn-muted" id="pararGravacao" disabled>Parar e revisar</button>
+   <span class="text-xs text-slate-400" id="statusGravacao" role="status">Sem gravação. Você também pode escolher um arquivo do celular.</span>
+  </div>
+  <form action="{% url 'enviar_video_inteligente' cfg.apartamento_id %}" method="post" enctype="multipart/form-data" id="formVideo" class="space-y-3">
+   {% csrf_token %}
+   <p>
+    <label for="arquivoVideo" class="block mb-2">Vídeo MP4/MOV/WebM (máximo 30 MB)</label>
+    <input id="arquivoVideo" name="arquivo" type="file" accept="video/mp4,video/quicktime,video/webm" capture="environment" required
+     class="block w-full rounded-lg border border-slate-700 p-3 bg-[#090e17] text-sm" />
+   </p>
+   <p>
+    <label for="observacaoVideo">Observação narrada / descrição adicional (opcional)</label>
+    <textarea id="observacaoVideo" name="observacao" maxlength="2000" rows="3" placeholder="Ex.: caixas elétricas instaladas na sala; reboco ainda pendente" class="w-full bg-[#090e17] text-sm p-3 border border-slate-700 rounded-lg"></textarea>
+   </p>
+   <p class="text-xs text-amber-300">Acesso à câmera requer HTTPS e permissões no dispositivo. O QR Code não substitui o login do sistema.</p>
+   <button type="submit" class="btn btn-primary" id="enviarVideo">Enviar vistoria para processamento</button>
+  </form>
+  <script>
+  (() => {
+    const iniciar = document.getElementById('iniciarGravacao');
+    const parar = document.getElementById('pararGravacao');
+    const status = document.getElementById('statusGravacao');
+    const visual = document.getElementById('cameraVideo');
+    const input = document.getElementById('arquivoVideo');
+    let stream = null, gravador = null, partes = [], inicio = null, limite = null;
+    function terminarStream() {
+       if (limite) clearTimeout(limite);
+       if (stream) stream.getTracks().forEach(t => t.stop());
+       stream = null;
+       iniciar.disabled = false;
+       parar.disabled = true;
+    }
+    iniciar.addEventListener('click', async () => {
+       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+          status.textContent = 'Este navegador não grava diretamente. Use o seletor de vídeo do celular.';
+          return;
+       }
+       try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},
+            audio:true
+          });
+          visual.muted = true; visual.controls = false; visual.srcObject = stream;
+          partes=[];
+          const tipos=['video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+          const tipo=tipos.find(t=>MediaRecorder.isTypeSupported(t));
+          gravador = new MediaRecorder(stream, {
+             ...(tipo ? {mimeType:tipo} : {}),
+             videoBitsPerSecond:1100000,
+          });
+          gravador.ondataavailable = e => { if(e.data.size) partes.push(e.data); };
+          gravador.onstop=() => {
+             const mime = gravador.mimeType || 'video/webm';
+             const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+             const blob = new Blob(partes,{type:mime});
+             if(blob.size>30*1024*1024) {
+               status.textContent='Vídeo maior que 30 MB. Grave menos tempo.'; terminarStream(); return;
+             }
+             try {
+                const arquivo = new File([blob], 'vistoria.'+ext, {type:mime});
+                const transfer = new DataTransfer();
+                transfer.items.add(arquivo);
+                input.files=transfer.files;
+                visual.srcObject=null;
+                visual.src=URL.createObjectURL(blob);
+                visual.controls=true; visual.muted=false;
+                status.textContent='Gravação pronta ('+Math.round(blob.size/1024)+' KB). Revise e clique em Enviar.';
+             } catch(err) {
+                status.textContent='Gravação concluída, mas não foi possível anexar automaticamente. Use o seletor de arquivo.';
+             }
+             terminarStream();
+          };
+          gravador.start(1000);
+          inicio=Date.now();
+          iniciar.disabled=true; parar.disabled=false;
+          status.textContent='Gravando vídeo e áudio. Duração máxima: 60 segundos.';
+          limite=setTimeout(()=>{if(gravador && gravador.state==='recording') gravador.stop();},60000);
+       }catch(err) {
+          status.textContent='Não foi possível acessar câmera/microfone. Use o seletor de arquivo.';
+          terminarStream();
+       }
+    });
+    parar.addEventListener('click',()=>{
+       if(gravador && gravador.state==='recording') gravador.stop();
+    });
+    window.addEventListener('pagehide',terminarStream);
+  })();
+  </script>
+ </section>
+
+ <section class="panel p-5 space-y-4">
+  <h2 class="font-bold text-xl">QR Code da unidade</h2>
+  <div class="bg-white p-3 rounded-xl inline-block">
+   <img src="{% url 'imagem_qr' cfg.apartamento_id %}" alt="QR Code exclusivo para abrir o apartamento após login" class="w-48 h-48" />
+  </div>
+  <p class="text-xs text-slate-400">Imprima e fixe na porta da unidade. Ao apontar a câmera do celular, o profissional autenticado abre esta ficha diretamente.</p>
+  <a class="btn btn-muted" href="{% url 'imagem_qr' cfg.apartamento_id %}" download="qr-apartamento.svg">Baixar QR em SVG</a>
+  <form method="get">
+   <label for="mesM">Verificar avanço até o mês</label>
+   <div class="flex gap-2 mt-1">
+    <input type="month" name="mes" id="mesM" value="{{ mes }}" class="bg-[#090e17] border border-slate-700 rounded p-2 w-full"/>
+    <button class="btn btn-muted" type="submit">Ver</button>
+   </div>
+  </form>
+ </section>
+</div>
+
+<section class="panel p-5 space-y-4">
+ <h2 class="font-bold text-xl">Progresso físico por serviço</h2>
+ <p class="text-xs text-slate-400">Os percentuais são calculados com pesos da tipologia ou pesos próprios da unidade. Nenhuma sugestão de IA altera este quadro sem validação técnica.</p>
+ <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+ {% for linha in progresso.linhas %}
+ <div class="bg-[#090e17] p-4 rounded-lg border border-slate-800">
+   <p class="text-xs text-slate-400">{{ linha.servico.codigo }} · peso {{ linha.peso|default_if_none:"não cadastrado" }}%</p>
+   <h3 class="font-semibold mt-1">{{ linha.servico.nome }}</h3>
+   <p class="font-black text-xl mt-2 {% if linha.progresso != None %}text-cyan-300{% else %}text-amber-300{% endif %}">
+     {% if linha.progresso != None %}{{ linha.progresso }}%{% else %}Aguardando medições{% endif %}
+   </p>
+   <p class="text-slate-400 text-xs mt-1">{{ linha.n_validados }}/{{ linha.n_criterios }} critérios com medição</p>
+ </div>
+ {% empty %}<p class="text-slate-400">Cadastre os serviços da tipologia primeiro.</p>{% endfor %}
+ </div>
+ {% if pode_editar %}
+ <details class="border-t border-slate-700 pt-3">
+   <summary class="text-cyan-300 cursor-pointer font-semibold">Personalizar pesos deste apartamento</summary>
+   <p class="text-xs text-amber-300 mt-2">Ao personalizar, você deve preencher TODOS os serviços e a soma precisa ser 100%. Após medições validadas, os pesos ficam protegidos contra alterações.</p>
+   <form method="post" action="{% url 'salvar_peso_unidade' cfg.apartamento_id %}" class="mt-3">
+    {% csrf_token %}{{ formulario_peso.as_p }}
+    <button class="btn btn-primary" type="submit">Salvar peso desta unidade</button>
+   </form>
+   <p class="text-xs mt-3 text-slate-400">Pesos próprios:</p>
+   {% for p in cfg.pesos_proprios.all %}
+   <p class="text-sm">{{ p.servico.nome }} — {{ p.peso }}%</p>
+   {% empty %}<p class="text-sm text-slate-400">Usando os pesos da tipologia.</p>{% endfor %}
+ </details>
+ {% endif %}
+</section>
+
+<section class="panel p-5 space-y-3">
+ <h2 class="font-bold text-xl">Critérios e verificações</h2>
+ {% for c in criterios %}
+ <div class="border-b border-slate-800 pb-3">
+   <p class="font-semibold text-sm">{{ c.servico.codigo }} / {{ c.codigo }} — {{ c.descricao }} · {{ c.peso }}%</p>
+   <p class="text-xs text-slate-400">{{ c.get_metodo_display }}
+     {% if c.ambiente %} · {{ c.ambiente.nome }}{% endif %}
+   </p>
+   {% if c.orientacao %}<p class="text-xs mt-1">{{ c.orientacao }}</p>{% endif %}
+   {% for previsto in c.itens_projeto.all %}
+    <p class="text-xs mt-1 {% if previsto.conferido %}text-emerald-400{% else %}text-amber-300{% endif %}">
+       Projeto: {{ previsto.referencia }} — {{ previsto.descricao }} (folha {{ previsto.pagina }})
+       {% if not previsto.conferido %}· aguardando conferência{% endif %}
+    </p>
+   {% endfor %}
+ {% empty %}
+ <p class="text-slate-400">Cadastre critérios para cada serviço.</p>
+ {% endfor %}
+ {% if pode_editar %}
+ <details class="pt-3"><summary class="text-cyan-300 cursor-pointer font-semibold">+ Confirmar porcentagem de um critério</summary>
+  <form method="post" action="{% url 'validar_criterio_view' cfg.apartamento_id %}" class="mt-3">
+   {% csrf_token %}{{ formulario.as_p }}
+   <p class="text-xs text-amber-300">Lance 0% explicitamente para etapas não iniciadas. A IA apenas sugere; não altera FVS nem medições mensais legadas.</p>
+   <button class="btn btn-primary" type="submit">Registrar medição verificada</button>
+  </form>
+ </details>
+ {% endif %}
+</section>
+
+<section class="panel p-5 space-y-3">
+ <h2 class="text-xl font-bold">Histórico de vídeos deste apartamento</h2>
+ {% for v in vistorias %}
+ <div class="border-b border-slate-800 pb-2 flex flex-wrap justify-between gap-2 text-sm">
+   <div>
+    <p class="font-semibold">{{ v.criado_em|date:"d/m/Y H:i" }} · {{ v.get_estado_display }}</p>
+    <p class="text-xs text-slate-400">Por {{ v.enviado_por|default:"usuário excluído" }}</p>
+   </div>
+   <a href="{% url 'detalhe_vistoria_inteligente' v.pk %}" class="text-cyan-300 underline">Abrir análise</a>
+ </div>
+ {% empty %}<p class="text-slate-400 text-sm">Nenhum vídeo enviado ainda.</p>{% endfor %}
+</section>
+{% endblock %}
