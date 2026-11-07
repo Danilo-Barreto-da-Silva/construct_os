@@ -33,6 +33,7 @@
         <div class="flex items-center flex-wrap gap-3 mt-2 sm:mt-0">
             <a href="{% url 'lista_rncs' %}" class="bg-rose-500/10 text-rose-300 border border-rose-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-rose-500/20"><i class="fa-solid fa-clipboard-list mr-1"></i> RNCs</a>
             <a href="{% url 'planejamento' %}" class="bg-sky-500/10 text-sky-300 border border-sky-500/30 rounded-lg px-3 py-2 text-xs font-bold hover:bg-sky-500/20"><i class="fa-solid fa-chart-line mr-1"></i> Planejamento</a>
+            {% if request.user.is_staff %}<a href="{% url 'cadastros' %}" class="bg-slate-700/40 text-slate-200 border border-slate-600 rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-700"><i class="fa-solid fa-plus mr-1"></i> Cadastros</a>{% endif %}
             {% if pode_gerar_demo %}<form method="POST" action="{% url 'popular_dados_demo' %}" onsubmit="return confirm('Criar dados fictícios neste banco vazio?')">
                 {% csrf_token %}
                 <input type="hidden" name="confirmar_substituicao" value="SIM">
@@ -118,7 +119,7 @@
             </div>
 
             <div class="bg-[#11192c] border border-slate-800 rounded-xl p-5 flex flex-col justify-between shadow-lg">
-                <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">QUALIDADE ISO 9001 E TRAVAS</p>
+                <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">QUALIDADE ISO 9001 E PENDÊNCIAS</p>
                 <div class="grid grid-cols-3 gap-2 text-center my-2">
                     <div class="bg-emerald-950/40 border border-emerald-500/40 rounded-lg p-2">
                         <span class="text-xl font-black text-emerald-400">{{ unidades_iso_ok }}</span>
@@ -130,7 +131,7 @@
                     </div>
                     <div class="bg-rose-950/40 border border-rose-500/40 rounded-lg p-2">
                         <span class="text-xl font-black text-rose-400">{{ unidades_rnc }}</span>
-                        <span class="block text-[10px] text-rose-300">RNC Aberta</span>
+                        <span class="block text-[10px] text-rose-300">FVS não conforme</span>
                     </div>
                 </div>
                 <p class="text-[11px] text-slate-400">Indicadores das medições no mês selecionado. Valores de demonstração não equivalem a laudos técnicos.</p>
@@ -145,7 +146,7 @@
             <a href="?mes={{ mes_selecionado }}&torre={{ item.torre.id }}&andar={{ andar_selecionado }}" class="bg-[#11192c] hover:bg-slate-800/80 border border-slate-800 hover:border-cyan-500/50 p-4 rounded-xl transition flex justify-between items-center">
                 <div>
                     <h4 class="font-bold text-white text-base"><i class="fa-solid fa-building text-cyan-400 mr-2"></i>{{ item.torre.nome }}</h4>
-                    <p class="text-xs text-slate-400 mt-1">{{ item.total_aptos }} unidades | {{ item.rncs }} RNCs ativas</p>
+                    <p class="text-xs text-slate-400 mt-1">{{ item.total_aptos }} unidades | {{ item.rncs }} FVSs não conformes</p>
                 </div>
                 <div class="text-right">
                     <span class="text-2xl font-black text-cyan-400">{{ item.avanco }}%</span>
@@ -190,7 +191,7 @@
                     <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> 100% Concluído + ISO OK (Verde)</span>
                     <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Em Execução (Azul)</span>
                     <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> FVS pendente (Amarelo)</span>
-                    <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Bloqueado / RNC (Vermelho)</span>
+                    <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Não conforme na FVS (Vermelho)</span>
                 </div>
                 {% else %}
                 <div class="text-center py-12 text-slate-400">
