@@ -9,7 +9,7 @@ from decimal import Decimal
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 
-from .models import EventoMarcoServico, MarcoServico, ServicoObra, Torre
+from .models import EventoMarcoServico, EventoServicoObra, MarcoServico, ServicoObra, Torre
 
 
 CENTO = Decimal('100')
@@ -30,6 +30,33 @@ def cadastrar_servico(*, autor, torre, codigo, descricao, peso_percentual):
     servico.save()
     return servico
 
+
+
+@transaction.atomic
+def atualizar_servico(*, autor, servico_id, descricao, peso_percentual):
+    """Corrige descrição/peso com auditoria, vedando reponderar dados históricos."""
+    if not autor.is_staff:
+        raise PermissionDenied('Alterar serviços exige autorização administrativa.')
+    # Lock da torre padroniza a verificação da soma dos pesos de serviços.
+    servico_atual = ServicoObra.objects.get(pk=servico_id)
+    Torre.objects.select_for_update().get(pk=servico_atual.torre_id)
+    servico = ServicoObra.objects.select_for_update().get(pk=servico_id)
+    anterior_descricao = servico.descricao
+    anterior_peso = servico.peso_percentual
+    servico.descricao = descricao.strip()
+    servico.peso_percentual = peso_percentual
+    servico.full_clean()
+    if (servico.descricao, servico.peso_percentual) == (
+        anterior_descricao, anterior_peso
+    ):
+        return servico, False
+    servico.save(update_fields=['descricao', 'peso_percentual'])
+    EventoServicoObra.objects.create(
+        servico=servico, autor=autor,
+        descricao_anterior=anterior_descricao, descricao_nova=servico.descricao,
+        peso_anterior=anterior_peso, peso_novo=servico.peso_percentual,
+    )
+    return servico, True
 
 def _validar_sequencia(servico, mes, campo, valor):
     """Percentual acumulado não pode retroceder nem ultrapassar mês posterior."""
