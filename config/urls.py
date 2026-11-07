@@ -18,6 +18,7 @@ urlpatterns = [
     path('qualidade/fvs/<int:medicao_id>/item/novo/', operacoes.salvar_item_fvs_view, name='criar_item_fvs'),
     path('qualidade/fvs/<int:medicao_id>/item/<int:item_id>/', operacoes.salvar_item_fvs_view, name='editar_item_fvs'),
     path('planejamento/', operacoes.planejamento, name='planejamento'),
+    path('cadastros/', operacoes.cadastros, name='cadastros'),
     path('apartamento/<int:medicao_id>/avaliar/', views.avaliar_apartamento, name='avaliar_apartamento'),
     path('apartamento/<int:medicao_id>/historico/', views.historico_medicao, name='historico_medicao'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
