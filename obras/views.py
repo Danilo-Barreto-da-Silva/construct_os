@@ -4,33 +4,31 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
+from django.views.decorators.http import require_POST
+from django.conf import settings
+from django.core.exceptions import PermissionDenied
+from django.utils.http import url_has_allowed_host_and_scheme
 from .models import Torre, Apartamento, MedicaoMensal
 from .ia_vistoria import analisar_video_obra
 
-def garantir_usuario_adm():
-    """Cria automaticamente o usuário 'adm' com senha 'obra2026' se não existir"""
-    if not User.objects.filter(username='adm').exists():
-        User.objects.create_superuser('adm', 'adm@horizontesgo.com.br', 'obra2026')
-
 def login_sistema(request):
-    garantir_usuario_adm()
     if request.user.is_authenticated:
         return redirect('painel_principal')
 
     erro = None
     if request.method == 'POST':
         usuario = request.POST.get('username', '').strip()
-        senha = request.POST.get('password', '').strip()
+        senha = request.POST.get('password', '')
         user = authenticate(request, username=usuario, password=senha)
         if user is not None:
             login(request, user)
-            return redirect('painel_principal')
+            return redirect(request.POST.get('next') or 'painel_principal')
         else:
             erro = "Acesso negado: usuário ou senha incorretos."
 
-    return render(request, 'obras/login.html', {'erro': erro})
+    return render(request, 'obras/login.html', {'erro': erro, 'next': request.GET.get('next', '')})
 
+@require_POST
 def logout_sistema(request):
     logout(request)
     return redirect('login_sistema')
@@ -99,7 +97,13 @@ def painel_principal(request):
     return render(request, 'obras/painel.html', context)
 
 @login_required(login_url='login_sistema')
+@require_POST
 def popular_dados_demo(request):
+    if not (request.user.is_superuser and settings.DEBUG):
+        raise PermissionDenied
+    if request.POST.get('confirmar_substituicao') != 'SIM':
+        messages.error(request, 'Confirme explicitamente a substituição dos dados de demonstração.')
+        return redirect('painel_principal')
     if request.method == 'POST':
         Torre.objects.all().delete()
         for nome_torre, fator in [("Torre A - Norte", 1.0), ("Torre B - Sul", 0.75)]:
@@ -184,4 +188,7 @@ def avaliar_apartamento(request, medicao_id):
             else:
                 messages.info(request, f"✅ Apto {medicao.apartamento.numero} atualizado com sucesso!")
 
-    return redirect(request.META.get('HTTP_REFERER', 'painel_principal'))
+    destino = request.META.get('HTTP_REFERER', '')
+    if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        destino = '/'
+    return redirect(destino)
