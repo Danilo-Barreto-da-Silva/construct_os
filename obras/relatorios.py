@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Avg, Count, Q
 from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
 from .models import MedicaoMensal, NaoConformidade, Torre
@@ -77,6 +78,7 @@ def relatorios(request):
         'torres': Torre.objects.all(),
         'totais': totais, 'por_torre': por_torre,
         'rncs_abertas': rncs_abertas.count(),
+        'rncs_atrasadas': rncs_abertas.filter(prazo__lt=timezone.localdate()).count(),
     })
 
 
