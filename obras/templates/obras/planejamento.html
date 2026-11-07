@@ -2,9 +2,10 @@
 {% block title %}Metas de planejamento{% endblock %}
 {% block content %}
 <div>
-  <p class="text-cyan-400 uppercase tracking-widest text-xs font-semibold">Planejamento físico</p>
-  <h1 class="text-3xl font-black mt-1">Metas mensais por torre</h1>
-  <p class="text-slate-400 text-sm mt-2">Cadastre percentuais planejados para comparar com o avanço registrado no painel. Valores não cadastrados não serão estimados.</p>
+  <p class="text-cyan-400 uppercase tracking-widest text-xs font-semibold">Modelo simples de metas</p>
+  <h1 class="text-3xl font-black mt-1">Metas mensais simples por torre</h1>
+  <p class="text-slate-400 text-sm mt-2">Cadastre percentuais planejados para comparar com o avanço registrado no painel. Valores não cadastrados não serão estimados. Este módulo não é ponderado por serviços.</p>
+  <a href="{% url 'planejamento_fisico' %}" class="btn btn-primary mt-3">Acessar Curva S física ponderada por serviços</a>
 </div>
 <div class="grid lg:grid-cols-3 gap-5">
   {% if pode_editar %}
@@ -52,6 +53,6 @@
 </div>
 <div class="panel p-5 text-sm text-slate-400">
   <h2 class="font-bold text-white mb-2">Como interpretar a comparação?</h2>
-  <p>Cada percentual é uma meta acumulada de avanço físico para o fim do mês informado. Quando todas as torres possuírem meta no mês, o painel geral poderá exibir a média simples. Não se trata ainda de uma Curva S físico-financeira ponderada por atividades.</p>
+  <p>Cada percentual é uma meta acumulada de avanço físico para o fim do mês informado. Quando todas as torres possuírem meta no mês, o painel geral poderá exibir a média simples. Para uma Curva S física ponderada por atividades, utilize o novo módulo de serviços. Os dois métodos não são combinados automaticamente e não equivalem a uma Curva S financeira.</p>
 </div>
 {% endblock %}
