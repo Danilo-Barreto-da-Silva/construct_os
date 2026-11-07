@@ -12,6 +12,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao, NaoConformidade, PlanejamentoMensal
 from .ia_vistoria import analisar_video_obra
+from .curva_s import consolidar_curva
 
 def login_sistema(request):
     if request.user.is_authenticated:
@@ -182,7 +183,16 @@ def painel_principal(request):
         andar_num = med.apartamento.andar
         matriz_andares.setdefault(andar_num, []).append(med)
 
+    # A Curva S de serviços é própria de cada torre. Nunca misturá-la
+    # com a média de apartamentos nem com um filtro de pavimento.
+    curva_servicos = None
+    if torre_selecionada != 'TODAS' and andar_selecionado == 'TODOS':
+        torre_fisica = torres.filter(pk=int(torre_selecionada)).first()
+        if torre_fisica and torre_fisica.servicos_fisicos.exists():
+            curva_servicos = consolidar_curva(torre_fisica)
+
     context = {
+        'curva_servicos': curva_servicos,
         'torres': torres,
         'meses_grafico': meses_grafico,
         'valores_grafico': valores_grafico,
