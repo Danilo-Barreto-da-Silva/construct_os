@@ -79,7 +79,7 @@ class HistoricoMedicao(models.Model):
 
 def validar_mes_referencia(value):
     """Mês civil no padrão AAAA-MM, sem aceitar valores inválidos."""
-    if not re.fullmatch(r'20\\d{2}-(0[1-9]|1[0-2])', value or ''):
+    if not re.fullmatch(r'20\d{2}-(0[1-9]|1[0-2])', value or ''):
         raise ValidationError('Informe um mês entre 2000-01 e 2099-12 (AAAA-MM).')
 
 
