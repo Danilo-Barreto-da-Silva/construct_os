@@ -22,7 +22,10 @@ def login_sistema(request):
         user = authenticate(request, username=usuario, password=senha)
         if user is not None:
             login(request, user)
-            return redirect(request.POST.get('next') or 'painel_principal')
+            destino = request.POST.get('next', '')
+            if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+                destino = '/'
+            return redirect(destino)
         else:
             erro = "Acesso negado: usuário ou senha incorretos."
 
