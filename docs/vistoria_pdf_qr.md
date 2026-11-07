@@ -9,8 +9,8 @@
 3. Cada apartamento é vinculado a uma tipologia. Opcionalmente recebe um conjunto COMPLETO de pesos próprios (soma = 100%).
 4. Documentos arquitetônicos/elétricos/hidrossanitários/estruturais são enviados como **PDF privado** e identificados pela **revisão**.
 5. Cada **item esperado** é vinculado ao documento, à folha e ao critério. Um profissional precisa **conferir** sua interpretação antes que o item seja utilizado pelo prompt da IA.
-6. O engenheiro ou encarregado autenticado lê o **QR Code exclusivo do apartamento**, abre a ficha no celular e grava vídeo com narração (ou envia um arquivo).
-7. O comando separado `processar_vistorias` envia apenas o vídeo selecionado e os critérios/requisitos conferidos ao Gemini. A IA separa evidência **visual**, **áudio declarado**, **ambas** ou **incerto**.
+6. O gestor pode **imprimir uma folha de QR Codes** de todas as unidades vinculadas. O engenheiro ou encarregado autenticado lê o QR Code exclusivo do apartamento, abre a ficha no celular e grava vídeo com narração (ou envia um arquivo).
+7. O sistema oferece uma vista **vídeo × projeto PDF lado a lado** para conferência humana. Não é sobreposição automática BIM nem validação espacial. O comando separado `processar_vistorias` envia apenas o vídeo selecionado e os critérios/requisitos conferidos ao Gemini. A IA separa evidência **visual**, **áudio declarado**, **ambas** ou **incerto**.
 8. Uma pessoa autorizada insere a porcentagem **verificada** de cada critério, com data, autor e origem. A IA não grava esses números.
 9. O percentual de serviço = Σ(peso interno × percentual confirmado / 100). O apartamento = Σ(peso do serviço × percentual do serviço / 100).
 
@@ -19,7 +19,7 @@
 ## Ausências e versionamento
 
 - Ausência de medição é **desconhecido**, não 0. Para algo não iniciado, o técnico registra **0%** explicitamente.
-- O progresso de um critério validado continua válido nos meses seguintes até ser substituído por nova verificação.
+- O progresso de um critério validado continua válido nos meses seguintes até ser substituído por nova verificação. A ficha mostra o **histórico de medições verificadas**, com autor e valores antigos/novos.
 - A soma de pesos da tipologia, dos critérios de cada serviço e (quando utilizados) dos pesos próprios da unidade precisa dar 100%.
 - Após a primeira medição validada da tipologia, o conjunto de serviços, critérios e pesos fica congelado. Não recalibrar retroativamente históricos: use outra **versão/tipologia** para mudanças de método.
 - Os resultados dessa estrutura aparecem na **ficha da unidade**. **Não substituem** `MedicaoMensal`, a Curva S por torre, RNC ou FVS até existir processo técnico separado de publicação.
@@ -54,7 +54,7 @@ python manage.py processar_vistorias --limite 1
 
 Esse comando **pode gerar cobrança na API**. É intencional e não roda automaticamente em segundo plano no Codespaces. Nunca cole uma API key em chats ou commits.
 
-10. Leia as sugestões separadas por fonte; a narração do vistoriador **não comprova** serviços ocultos, prumo, estanqueidade nem conformidade de projeto.
+10. Abra **Comparar vídeo × projeto PDF** para analisar visualmente as duas fontes antes de revisar as sugestões. Leia as sugestões separadas por fonte; a narração do vistoriador **não comprova** serviços ocultos, prumo, estanqueidade nem conformidade de projeto.
 11. Cadastre **medições verificadas** de subetapas no mês, com 0–100%. Confira que a porcentagem só aparece se todos os critérios estiverem confirmados e que a FVS antiga não foi alterada.
 
 ## Como aproveitar projetos PDF
