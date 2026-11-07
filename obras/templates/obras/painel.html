@@ -30,8 +30,9 @@
         </div>
 
         <div class="flex items-center gap-3 mt-2 sm:mt-0">
-            <form method="POST" action="{% url 'popular_dados_demo' %}">
+            <form method="POST" action="{% url 'popular_dados_demo' %}" onsubmit="return confirm('ATENÇÃO: isso apaga todas as torres, apartamentos e medições deste banco. Continuar?')">
                 {% csrf_token %}
+                <input type="hidden" name="confirmar_substituicao" value="SIM">
                 <button type="submit" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-2 rounded-lg transition shadow">
                     ⚡ Gerar Obra de Teste (2 Torres)
                 </button>
@@ -39,9 +40,9 @@
             <span class="bg-emerald-500/10 border border-emerald-500/50 text-emerald-400 text-xs px-3 py-1.5 rounded-full font-semibold">
                 ● IA GEMINI ATIVA
             </span>
-            <a href="{% url 'logout_sistema' %}" class="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+            <form method="post" action="{% url 'logout_sistema' %}">{% csrf_token %}<button type="submit" class="bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-bold px-3 py-1.5 rounded-lg transition">
                 <i class="fa-solid fa-right-from-bracket mr-1"></i> Sair
-            </a>
+            </button></form>
         </div>
     </header>
 
