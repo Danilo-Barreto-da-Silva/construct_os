@@ -280,6 +280,8 @@
         </div>
     </div>
 
+    {{ meses_grafico|json_script:"meses-grafico" }}
+    {{ valores_grafico|json_script:"valores-grafico" }}
     <script>
         new ApexCharts(document.querySelector("#radialChart"), {
             chart: { type: 'radialBar', height: 140, sparkline: { enabled: true } },
@@ -297,8 +299,6 @@
             }
         }).render();
 
-        {{ meses_grafico|json_script:"meses-grafico" }}
-        {{ valores_grafico|json_script:"valores-grafico" }}
         const mesesGrafico = JSON.parse(document.getElementById('meses-grafico').textContent);
         const valoresGrafico = JSON.parse(document.getElementById('valores-grafico').textContent);
         new ApexCharts(document.querySelector("#scurveChart"), {
