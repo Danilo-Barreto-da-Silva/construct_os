@@ -1,0 +1,50 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}Relatórios mensais{% endblock %}
+{% block content %}
+<div>
+  <p class="text-cyan-400 uppercase tracking-widest text-xs font-semibold">Dados consolidados da obra</p>
+  <h1 class="text-3xl font-black mt-1">Relatórios e exportações</h1>
+  <p class="text-slate-400 text-sm mt-2">Consolidação das medições realmente cadastradas; sem valores projetados artificialmente. Acesso restrito à equipe autorizada.</p>
+</div>
+<form method="get" class="panel grid sm:grid-cols-3 gap-3 p-4 items-end">
+  <div><label for="mes" class="block mb-1">Mês</label>
+    <select name="mes" id="mes" class="w-full bg-[#090e17] rounded-lg p-2 border border-slate-700 text-white text-sm">
+    {% for m in meses %}<option value="{{ m }}" {% if m == mes %}selected{% endif %}>{{ m }}</option>{% endfor %}
+    </select>
+  </div>
+  <div><label for="torre" class="block mb-1">Torre</label>
+    <select name="torre" id="torre" class="w-full bg-[#090e17] rounded-lg p-2 border border-slate-700 text-white text-sm">
+      <option value="">Todas</option>
+      {% for t in torres %}<option value="{{ t.pk }}" {% if torre_id == t.pk|stringformat:"s" %}selected{% endif %}>{{ t.nome }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+</form>
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+  <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">Medições</p><p class="text-2xl font-extrabold mt-2">{{ totais.quantidade }}</p></section>
+  <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">Avanço físico médio</p><p class="text-2xl text-cyan-400 font-extrabold mt-2">{% if totais.avanco != None %}{{ totais.avanco|floatformat:1 }}%{% else %}—{% endif %}</p></section>
+  <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">FVSs pendentes</p><p class="text-2xl text-amber-300 font-extrabold mt-2">{{ totais.pendentes }}</p></section>
+  <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">FVSs não conformes</p><p class="text-2xl text-rose-400 font-extrabold mt-2">{{ totais.nao_conformes }}</p></section>
+  <section class="panel p-4"><p class="text-xs text-slate-400 uppercase">RNCs formais abertas</p><p class="text-2xl text-rose-400 font-extrabold mt-2">{{ rncs_abertas }}</p></section>
+</div>
+<section class="panel p-5">
+  <div class="flex flex-wrap justify-between gap-3 items-center mb-4">
+    <h2 class="text-xl font-bold">Resultados por torre</h2>
+    <div class="flex flex-wrap gap-2">
+      <a class="btn btn-muted" href="{% url 'exportar_medicoes_csv' %}?mes={{ mes|urlencode }}&amp;torre={{ torre_id|urlencode }}">Exportar medições CSV</a>
+      <a class="btn btn-muted" href="{% url 'exportar_rncs_csv' %}?mes={{ mes|urlencode }}&amp;torre={{ torre_id|urlencode }}">Exportar RNCs CSV</a>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left">
+      <thead class="text-xs text-slate-400 uppercase bg-[#0d1424]"><tr><th class="p-3">Torre</th><th class="p-3">Medições</th><th class="p-3">Média física</th><th class="p-3">FVS não conformes</th></tr></thead>
+      <tbody class="divide-y divide-slate-800">
+        {% for item in por_torre %}
+        <tr><td class="p-3">{{ item.apartamento__torre__nome }}</td><td class="p-3">{{ item.quantidade }}</td><td class="p-3 text-cyan-300">{{ item.avanco|floatformat:1 }}%</td><td class="p-3 text-rose-300">{{ item.nao_conformes }}</td></tr>
+        {% empty %}<tr><td colspan="4" class="p-6 text-center text-slate-400">Sem medições registradas neste período.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<p class="text-xs text-slate-500">CSV separado por ponto e vírgula e codificado em UTF-8, incluindo cabeçalho. Indicadores não substituem orçamento, inspeção técnica ou planejamento ponderado.</p>
+{% endblock %}
