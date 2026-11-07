@@ -38,7 +38,7 @@
       <p><span class="text-slate-400">Aberta por:</span> {% if rnc.aberta_por %}{{ rnc.aberta_por.get_username }}{% else %}Usuário excluído{% endif %}</p>
       <p><span class="text-slate-400">Data de abertura:</span> {{ rnc.aberta_em|date:"d/m/Y H:i" }}</p>
       <p><span class="text-slate-400">Responsável:</span> {% if rnc.responsavel %}{{ rnc.responsavel.get_username }}{% else %}Não atribuído{% endif %}</p>
-      <p><span class="text-slate-400">Prazo:</span> {% if rnc.prazo %}{{ rnc.prazo|date:"d/m/Y" }}{% else %}Não definido{% endif %}</p>
+      <p><span class="text-slate-400">Prazo:</span> {% if rnc.prazo %}{{ rnc.prazo|date:"d/m/Y" }}{% if rnc.em_atraso %}<strong class="text-rose-400"> — Vencido</strong>{% endif %}{% else %}Não definido{% endif %}</p>
       {% if rnc.encerrada_em %}
       <p><span class="text-slate-400">Encerrada em:</span> {{ rnc.encerrada_em|date:"d/m/Y H:i" }}</p>
       <p><span class="text-slate-400">Encerrada por:</span> {% if rnc.encerrada_por %}{{ rnc.encerrada_por.get_username }}{% else %}Usuário excluído{% endif %}</p>
