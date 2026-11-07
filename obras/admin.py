@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     HistoricoMedicao, Torre, Apartamento, MedicaoMensal,
-    PlanejamentoMensal, NaoConformidade, EventoRNC, ItemFVS, EventoFVS,
+    PlanejamentoMensal, EventoPlanejamento, NaoConformidade, EventoRNC, ItemFVS, EventoFVS,
 )
 
 
@@ -33,7 +33,7 @@ class HistoricoMedicaoAdmin(admin.ModelAdmin):
 
 @admin.register(
     Torre, Apartamento, MedicaoMensal, PlanejamentoMensal,
-    NaoConformidade, EventoRNC, ItemFVS, EventoFVS,
+    NaoConformidade, EventoRNC, ItemFVS, EventoFVS, EventoPlanejamento,
 )
 class CadastroSomenteConsultaAdmin(admin.ModelAdmin):
     """Inspeção pelo admin sem operações que ignorariam o histórico operacional."""
