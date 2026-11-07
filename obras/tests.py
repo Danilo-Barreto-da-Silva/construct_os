@@ -84,3 +84,22 @@ class SecurityTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(reverse("painel_principal"), {"andar": "nao-numerico"})
         self.assertEqual(response.status_code, 200)
+
+    def test_historical_chart_uses_only_registered_months(self):
+        from .models import Torre, Apartamento, MedicaoMensal
+        user = get_user_model().objects.create_user("historico", password="safe-password-for-test")
+        self.client.force_login(user)
+        torre = Torre.objects.create(nome="Torre histórico")
+        apto = Apartamento.objects.create(torre=torre, andar=1, numero="101")
+        MedicaoMensal.objects.create(apartamento=apto, mes_referencia="2026-10", percentual_concluido=20)
+        MedicaoMensal.objects.create(apartamento=apto, mes_referencia="2026-11", percentual_concluido=60)
+        response = self.client.get(reverse("painel_principal"), {"mes": "2026-11"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["meses_grafico"], ["2026-10", "2026-11"])
+        self.assertEqual(response.context["valores_grafico"], [20.0, 60.0])
+
+    def test_invalid_tower_filter_does_not_crash(self):
+        user = get_user_model().objects.create_user("invalidtower", password="safe-password-for-test")
+        self.client.force_login(user)
+        response = self.client.get(reverse("painel_principal"), {"torre": "invalido"})
+        self.assertEqual(response.status_code, 200)
