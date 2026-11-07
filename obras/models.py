@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from decimal import Decimal
 import re
 
 def validar_mes_referencia(value):
@@ -223,3 +224,95 @@ class EventoPlanejamento(models.Model):
 
     class Meta:
         ordering = ['-registrado_em', '-id']
+
+
+class ServicoObra(models.Model):
+    """Atividade física vinculada a uma torre. Pesos somam 100% por torre."""
+    torre = models.ForeignKey(Torre, related_name='servicos_fisicos', on_delete=models.PROTECT)
+    codigo = models.CharField(max_length=20)
+    descricao = models.CharField(max_length=160)
+    peso_percentual = models.DecimalField(
+        max_digits=5, decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01')), MaxValueValidator(100)]
+    )
+    criado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['torre_id', 'codigo']
+        constraints = [
+            models.UniqueConstraint(fields=['torre', 'codigo'], name='servico_codigo_unico_torre')
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.torre_id:
+            outros = ServicoObra.objects.filter(torre_id=self.torre_id).exclude(pk=self.pk)
+            total = sum((item.peso_percentual for item in outros), Decimal('0'))
+            if self.peso_percentual is not None and total + self.peso_percentual > 100:
+                raise ValidationError({
+                    'peso_percentual': 'Os pesos dos serviços da torre não podem ultrapassar 100%.'
+                })
+        if self.pk and ServicoObra.objects.filter(pk=self.pk).exists():
+            anterior = ServicoObra.objects.get(pk=self.pk)
+            if (anterior.peso_percentual != self.peso_percentual or
+                    anterior.torre_id != self.torre_id) and self.marcos.exists():
+                raise ValidationError(
+                    'O peso e a torre não podem mudar depois de registrar progresso mensal.'
+                )
+
+    def __str__(self):
+        return f'{self.torre.nome} / {self.codigo} — {self.descricao}'
+
+
+class MarcoServico(models.Model):
+    """Percentual acumulado ao fim do mês; vazio é dado ausente, não zero."""
+    servico = models.ForeignKey(ServicoObra, related_name='marcos', on_delete=models.PROTECT)
+    mes_referencia = models.CharField(max_length=7, validators=[validar_mes_referencia])
+    previsto_acumulado = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    realizado_acumulado = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    atualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['mes_referencia', 'servico__codigo']
+        constraints = [
+            models.UniqueConstraint(fields=['servico', 'mes_referencia'], name='marco_servico_mes_unico')
+        ]
+
+    def clean(self):
+        super().clean()
+        if self.previsto_acumulado is None and self.realizado_acumulado is None:
+            raise ValidationError(
+                'Informe o percentual planejado, o realizado ou ambos.'
+            )
+
+    def __str__(self):
+        return f'{self.servico.codigo} / {self.mes_referencia}'
+
+
+class EventoMarcoServico(models.Model):
+    """Histórico imutável pela interface de um lançamento planejado/realizado."""
+    marco = models.ForeignKey(MarcoServico, related_name='eventos', on_delete=models.PROTECT)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    previsto_anterior = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    previsto_novo = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    realizado_anterior = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    realizado_novo = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    observacao = models.TextField(max_length=1000, blank=True, default='')
+
+    class Meta:
+        ordering = ['-criado_em', '-id']
