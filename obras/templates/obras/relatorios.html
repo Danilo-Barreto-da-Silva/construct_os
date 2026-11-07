@@ -34,6 +34,7 @@
     <div class="flex flex-wrap gap-2">
       <a class="btn btn-muted" href="{% url 'exportar_medicoes_csv' %}?mes={{ mes|urlencode }}&amp;torre={{ torre_id|urlencode }}">Exportar medições CSV</a>
       <a class="btn btn-muted" href="{% url 'exportar_rncs_csv' %}?mes={{ mes|urlencode }}&amp;torre={{ torre_id|urlencode }}">Exportar RNCs CSV</a>
+      <a class="btn btn-muted" href="{% url 'exportar_servicos_csv' %}?mes={{ mes|urlencode }}&amp;torre={{ torre_id|urlencode }}">Exportar serviços CSV</a>
     </div>
   </div>
   <div class="overflow-x-auto">
@@ -43,6 +44,35 @@
         {% for item in por_torre %}
         <tr><td class="p-3">{{ item.apartamento__torre__nome }}</td><td class="p-3">{{ item.quantidade }}</td><td class="p-3 text-cyan-300">{{ item.avanco|floatformat:1 }}%</td><td class="p-3 text-rose-300">{{ item.nao_conformes }}</td></tr>
         {% empty %}<tr><td colspan="4" class="p-6 text-center text-slate-400">Sem medições registradas neste período.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<section class="panel p-5">
+  <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
+    <div>
+      <h2 class="text-xl font-bold">Curva S física por atividades</h2>
+      <p class="text-xs text-slate-400 mt-1">Consolidação ponderada de serviços no mês do filtro. Incompleto não é zero; o método é independente das medições de apartamentos.</p>
+    </div>
+    <a class="btn btn-muted" href="{% url 'planejamento_fisico' %}">Gerenciar atividades</a>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-sm">
+      <thead class="text-slate-400 uppercase text-xs bg-[#0d1424]">
+        <tr><th class="p-3">Torre</th><th class="p-3">Peso cadastrado</th><th class="p-3">Planejado ponderado</th><th class="p-3">Executado ponderado</th><th class="p-3">Desvio</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+        {% for item in resumo_curvas %}
+        <tr>
+          <td class="p-3 font-semibold">{{ item.torre.nome }}</td>
+          <td class="p-3 {% if not item.pesos_ok %}text-amber-300{% endif %}">{{ item.pesos }} / 100%</td>
+          <td class="p-3">{% if item.linha and item.linha.previsto != None %}{{ item.linha.previsto }}%{% else %}<span class="text-slate-400">Indisponível</span>{% endif %}</td>
+          <td class="p-3">{% if item.linha and item.linha.realizado != None %}{{ item.linha.realizado }}%{% else %}<span class="text-slate-400">Indisponível</span>{% endif %}</td>
+          <td class="p-3">{% if item.linha and item.linha.desvio != None %}{{ item.linha.desvio }} p.p.{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="p-5 text-slate-400">Nenhuma torre cadastrada.</td></tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
