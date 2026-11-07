@@ -211,6 +211,20 @@
 </section>
 
 <section class="panel p-5 space-y-3">
+ <h2 class="text-xl font-bold">Histórico de medições verificadas</h2>
+ <p class="text-slate-400 text-xs">Trilha independente da FVS: percentual de cada subetapa, autor e data, sem mudanças feitas automaticamente pela IA.</p>
+ {% for evento in historico_medicoes %}
+ <div class="border-l-2 border-cyan-400 bg-[#090e17] rounded-r-lg p-3 text-sm">
+   <p class="font-semibold">{{ evento.medicao.criterio.servico.nome }} / {{ evento.medicao.criterio.descricao }}</p>
+   <p class="text-slate-400 text-xs mt-1">Mês {{ evento.medicao.mes_referencia }} · {{ evento.registrado_em|date:"d/m/Y H:i" }}
+     · {{ evento.autor|default:"Usuário excluído" }}</p>
+   <p class="mt-2">Confirmado: {{ evento.anterior|default_if_none:"não registrado" }}% → <strong class="text-cyan-300">{{ evento.novo }}%</strong></p>
+   {% if evento.observacao %}<p class="text-xs text-slate-300 mt-1">{{ evento.observacao }}</p>{% endif %}
+ </div>
+ {% empty %}<p class="text-slate-400 text-sm">Ainda não há subetapas verificadas nesta unidade.</p>{% endfor %}
+</section>
+
+<section class="panel p-5 space-y-3">
  <h2 class="text-xl font-bold">Histórico de vídeos deste apartamento</h2>
  {% for v in vistorias %}
  <div class="border-b border-slate-800 pb-2 flex flex-wrap justify-between gap-2 text-sm">
