@@ -13,6 +13,7 @@
         .pill-blue { background: rgba(14, 165, 233, 0.22); border: 2px solid #0ea5e9; box-shadow: 0 0 12px rgba(14, 165, 233, 0.35); }
         .pill-yellow { background: rgba(245, 158, 11, 0.22); border: 2px solid #f59e0b; box-shadow: 0 0 12px rgba(245, 158, 11, 0.35); }
         .pill-red { background: rgba(244, 63, 94, 0.25); border: 2px solid #f43f5e; box-shadow: 0 0 14px rgba(244, 63, 94, 0.45); }
+        #modalApto > div { max-height: 92vh; overflow-y: auto; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -272,9 +273,13 @@
                     <label class="text-xs text-slate-400 block mb-1">Observações Técnicas / RNC</label>
                     <input type="text" name="laudo_ia" id="inputLaudo" class="w-full bg-[#090e17] border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300">
                 </div>
-                <div class="flex justify-end gap-2">
+                <p class="text-xs text-slate-400">A indicação de FVS conforme exige usuário autorizado (equipe técnica). Toda alteração salva passa a ter registro de autoria no histórico.</p>
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <a id="linkHistorico" href="#" class="text-xs font-bold text-cyan-300 hover:text-cyan-200 underline">Ver histórico desta medição</a>
+                    <div class="flex justify-end gap-2">
                     <button type="button" onclick="fecharModal()" class="px-4 py-2 rounded-lg text-xs font-bold bg-slate-800 text-slate-300">Cancelar</button>
                     <button type="submit" class="px-5 py-2 rounded-lg text-xs font-extrabold bg-emerald-500 hover:bg-emerald-400 text-slate-950">Salvar Medição & FVS</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -324,6 +329,7 @@
             document.getElementById('inputLaudo').value = laudo;
             document.getElementById('formIA').action = `/apartamento/${id}/avaliar/`;
             document.getElementById('formManual').action = `/apartamento/${id}/avaliar/`;
+            document.getElementById('linkHistorico').href = `/apartamento/${id}/historico/`;
             document.getElementById('modalApto').classList.remove('hidden');
             document.getElementById('modalApto').classList.add('flex');
         }
