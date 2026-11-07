@@ -133,7 +133,7 @@ def consolidar_curva(torre):
     """Retorna série ponderada, mantendo ausências como None, nunca como zero."""
     servicos = list(
         ServicoObra.objects.filter(torre=torre)
-        .prefetch_related('marcos').order_by('codigo')
+        .prefetch_related('marcos', 'revisoes__autor').order_by('codigo')
     )
     pesos_total = sum((servico.peso_percentual for servico in servicos), ZERO)
     pesos_ok = bool(servicos) and pesos_total == CENTO
