@@ -16,6 +16,7 @@ urlpatterns = [
     path('inteligencia/qr/<uuid:token>/', inteligencia_views.vistoria_por_qr, name='vistoria_por_qr'),
     path('inteligencia/vistoria/<int:vistoria_id>/', inteligencia_views.detalhe_vistoria_inteligente, name='detalhe_vistoria_inteligente'),
     path('inteligencia/vistoria/<int:vistoria_id>/video/', inteligencia_views.video_privado, name='video_privado'),
+    path('inteligencia/vistoria/<int:vistoria_id>/reprocessar/', inteligencia_views.reprocessar_vistoria, name='reprocessar_vistoria'),
     path('login/', views.login_sistema, name='login_sistema'),
     path('sair/', views.logout_sistema, name='logout_sistema'),
     path('', views.painel_principal, name='painel_principal'),
