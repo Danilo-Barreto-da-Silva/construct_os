@@ -281,3 +281,20 @@ def reprocessar_vistoria(request,vistoria_id):
         visto.save(update_fields=['estado','erro_publico'])
         messages.success(request,'Vídeo recolocado na fila para análise por comando.')
     return redirect('detalhe_vistoria_inteligente',vistoria_id=vistoria_id)
+
+
+
+@login_required(login_url='login_sistema')
+@never_cache
+def etiquetas_tipologia(request,tipologia_id):
+    """Folha para impressão dos QR Codes; não expõe documentos ou dados sem login."""
+    apenas_gestor(request.user)
+    tipo=get_object_or_404(
+        TipologiaUnidade.objects.select_related('torre'),pk=tipologia_id
+    )
+    unidades=UnidadeInteligente.objects.filter(tipologia=tipo,ativo=True).select_related(
+        'apartamento'
+    ).order_by('apartamento__andar','apartamento__numero')
+    return render(request,'obras/etiquetas_tipologia.html',{
+        'tipo':tipo,'unidades':unidades,
+    })
