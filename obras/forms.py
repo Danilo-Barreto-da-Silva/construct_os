@@ -160,3 +160,15 @@ class MarcoServicoForm(StyledModelForm):
         mes = self.cleaned_data['mes_referencia']
         validar_mes_referencia(mes)
         return mes
+
+
+
+class EditarServicoObraForm(StyledModelForm):
+    """Editar apenas dados que não identificam nem transferem o serviço entre torres."""
+    class Meta:
+        model = ServicoObra
+        fields = ['descricao', 'peso_percentual']
+        labels = {'descricao': 'Descrição do serviço', 'peso_percentual': 'Peso físico (%)'}
+        widgets = {
+            'peso_percentual': forms.NumberInput(attrs={'min': '0.01', 'max': '100', 'step': '0.01'}),
+        }
