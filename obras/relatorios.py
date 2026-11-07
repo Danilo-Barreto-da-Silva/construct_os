@@ -9,7 +9,8 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
-from .models import MedicaoMensal, NaoConformidade, Torre
+from .models import MedicaoMensal, NaoConformidade, Torre, MarcoServico, validar_mes_referencia
+from .curva_s import consolidar_curva
 
 
 def selecionar_filtros(request):
@@ -73,12 +74,20 @@ def relatorios(request):
         rncs_abertas = rncs_abertas.filter(medicao__mes_referencia=mes)
     if torre:
         rncs_abertas = rncs_abertas.filter(medicao__apartamento__torre_id=int(torre))
+    torres_curva = Torre.objects.filter(pk=int(torre)) if torre else Torre.objects.all()
+    resumo_curvas = []
+    for t in torres_curva:
+        curva = consolidar_curva(t)
+        linha = next((linha for linha in curva['linhas'] if linha['mes'] == mes), None)
+        resumo_curvas.append({'torre': t, 'pesos': curva['peso_total'],
+                              'pesos_ok': curva['pesos_ok'], 'linha': linha})
     return render(request, 'obras/relatorios.html', {
         'meses': meses, 'mes': mes, 'torre_id': torre,
         'torres': Torre.objects.all(),
         'totais': totais, 'por_torre': por_torre,
         'rncs_abertas': rncs_abertas.count(),
         'rncs_atrasadas': rncs_abertas.filter(prazo__lt=timezone.localdate()).count(),
+        'resumo_curvas': resumo_curvas,
     })
 
 
@@ -143,5 +152,47 @@ def exportar_rncs_csv(request):
             rnc.prazo.isoformat() if rnc.prazo else '',
             rnc.aberta_por.get_username() if rnc.aberta_por else '',
             rnc.aberta_em.strftime('%Y-%m-%d %H:%M'),
+        ]])
+    return resp
+
+
+
+@login_required(login_url='login_sistema')
+@never_cache
+def exportar_servicos_csv(request):
+    """Exporta planejamento ponderado bruto; não inventa linhas para meses ausentes."""
+    if not request.user.is_staff:
+        raise PermissionDenied('Exportação restrita à equipe autorizada.')
+    torre_id = request.GET.get('torre', '')
+    mes = request.GET.get('mes', '')
+    qs = MarcoServico.objects.select_related(
+        'servico__torre', 'atualizado_por'
+    )
+    if torre_id.isdecimal():
+        qs = qs.filter(servico__torre_id=int(torre_id))
+    if mes:
+        try:
+            validar_mes_referencia(mes)
+        except Exception:
+            qs = qs.none()
+        else:
+            qs = qs.filter(mes_referencia=mes)
+    resp = HttpResponse(content_type='text/csv; charset=utf-8')
+    resp['Content-Disposition'] = 'attachment; filename="construct_os_curva_s_servicos.csv"'
+    resp.write('\ufeff')
+    escritor = csv.writer(resp, delimiter=';')
+    escritor.writerow([
+        'Torre', 'Código', 'Descrição do serviço', 'Peso (%)', 'Mês',
+        'Planejado acumulado do serviço (%)', 'Executado acumulado do serviço (%)',
+        'Atualizado por', 'Data da atualização',
+    ])
+    for marco in qs.order_by('servico__torre__nome', 'servico__codigo', 'mes_referencia').iterator(chunk_size=500):
+        escritor.writerow([proteger_csv(v) for v in [
+            marco.servico.torre.nome, marco.servico.codigo, marco.servico.descricao,
+            marco.servico.peso_percentual, marco.mes_referencia,
+            marco.previsto_acumulado if marco.previsto_acumulado is not None else '',
+            marco.realizado_acumulado if marco.realizado_acumulado is not None else '',
+            marco.atualizado_por.get_username() if marco.atualizado_por else '',
+            marco.atualizado_em.strftime('%Y-%m-%d %H:%M'),
         ]])
     return resp
