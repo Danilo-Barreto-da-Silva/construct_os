@@ -235,3 +235,28 @@ class OperacoesTests(TestCase):
         })
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Apartamento.objects.count(), 1)
+
+    def test_telas_operacionais_abrem_sem_erros(self):
+        """Teste de navegação real: detecta templates ausentes e erros ao renderizar."""
+        self.client.force_login(self.tecnico)
+        urls = [
+            reverse('painel_principal'),
+            reverse('lista_rncs'),
+            reverse('planejamento'),
+            reverse('cadastros'),
+            reverse('relatorios'),
+            reverse('checklist_fvs', args=[self.medicao.pk]),
+            reverse('abrir_rnc_pagina', args=[self.medicao.pk]),
+            reverse('historico_medicao', args=[self.medicao.pk]),
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
+
+    def test_detalhe_rnc_carrega_com_eventos(self):
+        self.client.force_login(self.tecnico)
+        self.postar_rnc()
+        rnc = NaoConformidade.objects.get()
+        resp = self.client.get(reverse('detalhe_rnc', args=[rnc.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, rnc.titulo)
