@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from obras import views, operacoes, relatorios
+from obras import views, operacoes, relatorios, planejamento_atividades
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -18,6 +18,7 @@ urlpatterns = [
     path('qualidade/fvs/<int:medicao_id>/item/novo/', operacoes.salvar_item_fvs_view, name='criar_item_fvs'),
     path('qualidade/fvs/<int:medicao_id>/item/<int:item_id>/', operacoes.salvar_item_fvs_view, name='editar_item_fvs'),
     path('planejamento/', operacoes.planejamento, name='planejamento'),
+    path('planejamento/fisico/', planejamento_atividades.planejamento_fisico, name='planejamento_fisico'),
     path('cadastros/', operacoes.cadastros, name='cadastros'),
     path('relatorios/', relatorios.relatorios, name='relatorios'),
     path('relatorios/medicoes.csv', relatorios.exportar_medicoes_csv, name='exportar_medicoes_csv'),
