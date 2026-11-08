@@ -352,6 +352,7 @@ def comparar_vistoria_projeto(request,vistoria_id):
 @never_cache
 def video_reproducao(request,vistoria_id):
     visto=get_object_or_404(VistoriaInteligente,pk=vistoria_id)
+    pode_ver_video(request.user, visto)
     try:
         arquivo=visto.arquivo.open('rb')
     except OSError:
