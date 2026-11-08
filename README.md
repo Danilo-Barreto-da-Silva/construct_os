@@ -17,6 +17,12 @@ Protótipo acadêmico de gestão de obras em **Django**, com medições mensais,
 - **IA opcional:** o fluxo legado e o novo comando `processar_vistorias --limite 1` dependem da chave Gemini. O fluxo novo separa visual, áudio e incerteza, considera apenas referências de projetos conferidas, não atualiza FVS ou medições por conta própria e tem custo de API quando ativado.
 - **Testes:** verificação do Django, consistência de migrações, testes de permissões e de fluxos administrativos por GitHub Actions.
 
+## Piloto de campo com filmagem real (experimental)
+
+O comando `python manage.py preparar_piloto_campo --confirmar-teste` gera **uma torre de laboratório separada**, com 11 serviços e critérios que distinguem inspeção visual de ensaios/documentos. Os pesos são **estimativas provisórias**, e não foram extraídos como quantidades reais dos projetos. Nenhum dado das obras anteriores, FVS ou RNC é alterado.
+
+Antes de filmar, leia o [roteiro de gravação e uso responsável](docs/piloto_filmagem_campo.md). A gravação pode ser feita offline com a câmera do celular e enviada mais tarde; o Gemini exige configuração explícita de chave e autorização para transferência do vídeo à API externa.
+
 ## Instalação e Codespaces
 
 Ative o ambiente do projeto (Python e dependências conforme `requirements.txt`):
