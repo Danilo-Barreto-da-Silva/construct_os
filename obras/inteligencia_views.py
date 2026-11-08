@@ -34,6 +34,12 @@ def apenas_gestor(usuario):
         raise PermissionDenied('Somente a equipe autorizada altera parâmetros de projeto.')
 
 
+def pode_ver_video(usuario, visto):
+    """Usuário de campo só vê sua própria gravação; gestor revisa todas."""
+    if not (usuario.is_staff or visto.enviado_por_id == usuario.pk):
+        raise PermissionDenied('Você não tem permissão para consultar esta vistoria.')
+
+
 @login_required(login_url='login_sistema')
 def catalogo_inteligente(request):
     tipologias = TipologiaUnidade.objects.select_related('torre').order_by('torre__nome','codigo')
@@ -157,11 +163,14 @@ def unidade_inteligente(request, apartamento_id):
     }
     formulario = MedicaoVerificadaForm(unidade=cfg,initial={'mes':mes})
     formulario_peso = PesoUnidadeForm(unidade=cfg)
+    lista_vistorias = cfg.apartamento.vistorias_inteligentes.select_related('enviado_por')
+    if not request.user.is_staff:
+        lista_vistorias = lista_vistorias.filter(enviado_por=request.user)
     return render(request,'obras/unidade_inteligente.html',{
         'cfg':cfg,'mes':mes,'progresso':progresso,'criterios':criterios,
         'personalizacoes':personalizacoes,'formulario':formulario,
         'formulario_peso':formulario_peso,'pode_editar':request.user.is_staff,
-        'vistorias':cfg.apartamento.vistorias_inteligentes.select_related('enviado_por')[:20],
+        'vistorias':lista_vistorias[:20],
         'video_form':VideoVistoriaForm(),
         'historico_medicoes':EventoMedicaoCriterio.objects.filter(
             medicao__apartamento=cfg.apartamento,
@@ -247,6 +256,7 @@ def detalhe_vistoria_inteligente(request,vistoria_id):
         VistoriaInteligente.objects.select_related('apartamento__torre','enviado_por'),
         pk=vistoria_id
     )
+    pode_ver_video(request.user, visto)
     cfg = get_object_or_404(UnidadeInteligente,apartamento=visto.apartamento,ativo=True)
     return render(request,'obras/detalhe_vistoria_inteligente.html',{
         'visto':visto,'cfg':cfg,'sugestoes':visto.sugestoes.select_related(
@@ -259,6 +269,7 @@ def detalhe_vistoria_inteligente(request,vistoria_id):
 @never_cache
 def video_privado(request,vistoria_id):
     visto = get_object_or_404(VistoriaInteligente,pk=vistoria_id)
+    pode_ver_video(request.user, visto)
     try:
         arquivo = visto.arquivo.open('rb')
     except OSError:
@@ -272,6 +283,7 @@ def video_privado(request,vistoria_id):
 @login_required(login_url='login_sistema')
 @never_cache
 def documento_privado(request,documento_id):
+    apenas_gestor(request.user)
     doc = get_object_or_404(DocumentoProjeto,pk=documento_id)
     try:
         arquivo = doc.arquivo.open('rb')
@@ -320,6 +332,7 @@ def etiquetas_tipologia(request,tipologia_id):
 @login_required(login_url='login_sistema')
 def comparar_vistoria_projeto(request,vistoria_id):
     """Visualização LADO A LADO para conferência humana; não é sobreposição BIM."""
+    apenas_gestor(request.user)
     visto=get_object_or_404(
         VistoriaInteligente.objects.select_related('apartamento__torre'),pk=vistoria_id
     )
@@ -358,6 +371,7 @@ def video_reproducao(request,vistoria_id):
 @never_cache
 @xframe_options_sameorigin
 def documento_visualizacao(request,documento_id):
+    apenas_gestor(request.user)
     doc=get_object_or_404(DocumentoProjeto,pk=documento_id)
     try:
         arquivo=doc.arquivo.open('rb')
