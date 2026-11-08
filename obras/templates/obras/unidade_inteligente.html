@@ -34,10 +34,23 @@
  </div>
 </section>
 
+<section class="panel p-5 space-y-3 border-l-4 border-amber-400">
+ <p class="text-amber-300 text-xs font-bold uppercase tracking-widest">PROTOCOLO DE CAMPO · PESOS PROVISÓRIOS</p>
+ <h2 class="font-bold text-lg">Roteiro de filmagem — 1 a 2 minutos</h2>
+ <p class="text-sm text-slate-300">Os parâmetros são um modelo de teste do processo construtivo, <strong>não foram medidos nos projetos reais</strong>. Mostre apenas áreas para as quais tenha autorização. Evite pessoas, crachás, documentos e informações de clientes.</p>
+ <div class="grid md:grid-cols-3 gap-3 text-sm">
+  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">1. Introdução (10 s)</strong><p class="text-slate-400 mt-1">Identifique o ambiente sem divulgar dados pessoais. Diga a etapa da obra e o que será mostrado.</p></div>
+  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">2. Tomadas e detalhes (60–90 s)</strong><p class="text-slate-400 mt-1">Filme paredes e vãos; aproxime de caixas elétricas chumbadas, conduítes, prumadas e esperas visíveis.</p></div>
+  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">3. Pendências (10–20 s)</strong><p class="text-slate-400 mt-1">Narre o que está parcial, não iniciado ou encoberto. Não declare teste concluído sem registro.</p></div>
+ </div>
+ <p class="text-xs text-amber-300">Fale claramente: “Na sala, as caixas estão chumbadas; os conduítes ainda estão parciais. Na hidráulica, os ramais estão aparentes; o teste de pressão não foi verificado.” A IA separará sua fala das evidências visuais.</p>
+ <p class="text-xs text-slate-400">Se a internet estiver instável, grave pelo aplicativo nativo da câmera, salve no celular e faça o upload mais tarde. É possível enviar vários vídeos curtos, um por vistoria.</p>
+</section>
+
 <div class="grid lg:grid-cols-3 gap-4">
  <section class="panel p-5 lg:col-span-2 space-y-4">
   <h2 class="text-xl font-bold">Gravar vistoria com áudio</h2>
-  <p class="text-sm text-slate-400">Ao filmar, mostre cada ambiente e narre o que foi instalado. A narração é uma declaração, não comprovação visual. A gravação só será enviada ao clicar em <strong>Enviar vistoria</strong>.</p>
+  <p class="text-sm text-slate-400">Ao filmar, mostre o ambiente, depois os detalhes e narre o que foi instalado. A fala é uma declaração, não comprovação visual. O arquivo só é enviado ao clicar em <strong>Enviar vistoria</strong>.</p>
   <div class="rounded-lg bg-black/70 border border-slate-700 overflow-hidden">
    <video id="cameraVideo" class="w-full max-h-80" autoplay muted playsinline controls></video>
   </div>
@@ -118,8 +131,8 @@
           gravador.start(1000);
           inicio=Date.now();
           iniciar.disabled=true; parar.disabled=false;
-          status.textContent='Gravando vídeo e áudio. Duração máxima: 60 segundos.';
-          limite=setTimeout(()=>{if(gravador && gravador.state==='recording') gravador.stop();},60000);
+          status.textContent='Gravando vídeo e áudio. Duração máxima: 120 segundos.';
+          limite=setTimeout(()=>{if(gravador && gravador.state==='recording') gravador.stop();},120000);
        }catch(err) {
           status.textContent='Não foi possível acessar câmera/microfone. Use o seletor de arquivo.';
           terminarStream();
@@ -138,7 +151,7 @@
   <div class="bg-white p-3 rounded-xl inline-block">
    <img src="{% url 'imagem_qr' cfg.apartamento_id %}" alt="QR Code exclusivo para abrir o apartamento após login" class="w-48 h-48" />
   </div>
-  <p class="text-xs text-slate-400">Imprima e fixe na porta da unidade. Ao apontar a câmera do celular, o profissional autenticado abre esta ficha diretamente.</p>
+  <p class="text-xs text-slate-400">Para testar em outro celular, gere o QR acessando este site pelo endereço HTTPS do Codespaces (*.app.github.dev). Se a página estiver aberta em localhost, o código pode apontar para localhost e não funcionar fora do computador. O QR exige login.</p>
   <a class="btn btn-muted" href="{% url 'imagem_qr' cfg.apartamento_id %}" download="qr-apartamento.svg">Baixar QR em SVG</a>
   <form method="get">
    <label for="mesM">Verificar avanço até o mês</label>
@@ -152,7 +165,7 @@
 
 <section class="panel p-5 space-y-4">
  <h2 class="font-bold text-xl">Progresso físico por serviço</h2>
- <p class="text-xs text-slate-400">Os percentuais são calculados com pesos da tipologia ou pesos próprios da unidade. Nenhuma sugestão de IA altera este quadro sem validação técnica.</p>
+ <p class="text-xs text-slate-400">Os percentuais são calculados com pesos da tipologia ou pesos próprios da unidade. <strong>Na tipologia de laboratório, os pesos são hipóteses de teste e não representam medição física real.</strong> Nenhuma sugestão de IA altera este quadro sem validação técnica.</p>
  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
  {% for linha in progresso.linhas %}
  <div class="bg-[#090e17] p-4 rounded-lg border border-slate-800">
