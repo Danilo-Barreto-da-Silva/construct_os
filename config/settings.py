@@ -139,5 +139,7 @@ MAILERS = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Quando criar sua chave no Google AI Studio, troque "MODO_SIMULACAO" pela sua chave
+# Configuração exclusivamente por variável de ambiente. Nunca versionar a chave.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "MODO_SIMULACAO")
+# Gemini 2.5 pode aparecer na listagem mesmo indisponível para contas novas.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
