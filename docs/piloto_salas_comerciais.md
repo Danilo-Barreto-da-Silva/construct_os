@@ -42,8 +42,8 @@ Se já tiver criado o laboratório anteriormente, uma segunda execução é reje
 
 Depois abra **Projetos & Vistorias**, escolha a tipologia `COMERCIAL-COMPLETO-V1` na torre **LAB — Salas comerciais**. Haverá dois links:
 
-- `SALA-TESTE-01` — primeiro vídeo (andar fictício 1);
-- `SALA-TESTE-02` — segundo vídeo (andar fictício 2).
+- `SALA-01` — primeiro vídeo (andar fictício 1);
+- `SALA-02` — segundo vídeo (andar fictício 2).
 
 Essa associação é somente um **rótulo experimental**; ainda não cadastramos os andares ou números verdadeiros das salas filmadas.
 
