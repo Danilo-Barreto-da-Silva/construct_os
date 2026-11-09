@@ -16,7 +16,7 @@ from obras.models import (
 
 NOME_LAB = "LAB — Salas comerciais"
 TIPO_LAB = "COMERCIAL-COMPLETO-V1"
-SALAS = ((1, "SALA-TESTE-01"), (2, "SALA-TESTE-02"))
+SALAS = ((1, "SALA-01"), (2, "SALA-02"))
 
 
 class Command(BaseCommand):
