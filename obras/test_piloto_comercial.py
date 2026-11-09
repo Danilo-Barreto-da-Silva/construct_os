@@ -42,6 +42,13 @@ class PilotoComercialTests(TestCase):
             percentual_concluido=42,status_iso='PENDENTE'
         )
 
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        media = override_settings(MEDIA_ROOT=self.tmp.name)
+        media.enable()
+        self.addCleanup(media.disable)
+
     def criar_lab(self):
         call_command('preparar_piloto_comercial',confirmar_teste=True,verbosity=0)
         tipologia=TipologiaUnidade.objects.get(codigo='COMERCIAL-COMPLETO-V1')
@@ -109,8 +116,8 @@ class PilotoComercialTests(TestCase):
         self.client.force_login(self.tecnico)
         resp=self.client.get(url)
         self.assertEqual(resp.status_code,200)
-        self.assertContains(resp,'SALA-TESTE-01')
-        self.assertContains(resp,'SALA-TESTE-02')
+        self.assertContains(resp,'SALA-01')
+        self.assertContains(resp,'SALA-02')
         self.assertContains(resp,'Indisponível')
         self.assertContains(resp,'mesma tipologia')
 
