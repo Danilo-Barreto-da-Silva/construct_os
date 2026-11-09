@@ -7,6 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('inteligencia/', inteligencia_views.catalogo_inteligente, name='catalogo_inteligente'),
     path('inteligencia/tipologia/<int:tipologia_id>/etiquetas/', inteligencia_views.etiquetas_tipologia, name='etiquetas_tipologia'),
+    path('inteligencia/tipologia/<int:tipologia_id>/comparar/', inteligencia_views.comparar_unidades_tipologia, name='comparar_unidades_tipologia'),
     path('inteligencia/projeto/item/<int:item_id>/conferir/', inteligencia_views.conferir_item_projeto, name='conferir_item_projeto'),
     path('inteligencia/projeto/documento/<int:documento_id>/arquivo/', inteligencia_views.documento_privado, name='documento_privado'),
     path('inteligencia/unidade/<int:apartamento_id>/', inteligencia_views.unidade_inteligente, name='unidade_inteligente'),
