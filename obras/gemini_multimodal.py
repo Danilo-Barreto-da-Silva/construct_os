@@ -33,6 +33,14 @@ class RelatoMultimodal(BaseModel):
     sugestoes: list[SugestaoEstruturada] = Field(default_factory=list)
 
 
+# Modelo atual para novas contas. Pode ser alterado por variável de ambiente.
+MODELO_GEMINI_PADRAO = 'gemini-3.8-flash'
+
+
+def modelo_gemini():
+    return getattr(settings, 'GEMINI_MODEL', MODELO_GEMINI_PADRAO)
+
+
 def preparar_contexto(vistoria):
     cfg = UnidadeInteligente.objects.select_related('tipologia').get(
         apartamento=vistoria.apartamento, ativo=True
@@ -138,18 +146,23 @@ def _consultar_gemini(vistoria, lista_criterios, referencias):
             'Critérios configurados: ' + json.dumps(lista_criterios,ensure_ascii=False) + '\n'
             'Itens do projeto previamente CONFERIDOS: ' + json.dumps(referencias,ensure_ascii=False)
         )
-        resposta = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[upload,prompt],
-            config=types.GenerateContentConfig(
-                response_mime_type='application/json',
-                response_schema=RelatoMultimodal,
-                temperature=0.1,
-            ),
+        # Interactions API: interface recomendada pelo Google desde 2026.
+        # O modelo 2.5 pode constar na listagem, mas retorna 404 para novos projetos.
+        resposta = client.interactions.create(
+            model=modelo_gemini(),
+            input=[
+                {'type': 'video', 'uri': upload.uri, 'mime_type': upload.mime_type},
+                {'type': 'text', 'text': prompt},
+            ],
+            response_format={
+                'type': 'text',
+                'mime_type': 'application/json',
+                'schema': RelatoMultimodal.model_json_schema(),
+            },
         )
-        if not resposta.text:
+        if not resposta.output_text:
             raise RuntimeError('Resposta de IA sem texto válido.')
-        return RelatoMultimodal.model_validate_json(resposta.text)
+        return RelatoMultimodal.model_validate_json(resposta.output_text)
     finally:
         if nome_remoto:
             try:
@@ -207,7 +220,7 @@ def processar_vistoria(vistoria_id):
             visto.resumo_ia = dados.resumo
             visto.transcricao_ia = dados.transcricao_narrada
             visto.estado = 'ANALISADA'
-            visto.modelo = 'gemini-2.5-flash'
+            visto.modelo = modelo_gemini()
             visto.processado_em = timezone.now()
             visto.save(update_fields=[
                 'resumo_ia','transcricao_ia','estado','modelo','processado_em'
