@@ -1,0 +1,68 @@
+{% extends "obras/base_operacional.html" %}
+{% block title %}Comparar salas da mesma tipologia{% endblock %}
+{% block content %}
+<div class="flex flex-wrap justify-between items-start gap-3">
+ <div>
+  <p class="text-cyan-400 text-xs font-bold uppercase tracking-widest">Comparação experimental de vistorias</p>
+  <h1 class="text-3xl font-black mt-1">Unidades da mesma tipologia</h1>
+  <p class="text-sm text-slate-400 mt-2">{{ tipo.torre.nome }} · {{ tipo.codigo }} · {{ tipo.nome }}</p>
+ </div>
+ <a class="btn btn-muted" href="{% url 'catalogo_inteligente' %}?tipo={{ tipo.pk }}">Voltar ao catálogo</a>
+</div>
+<section class="panel p-4 border-l-4 border-amber-400">
+ <p class="text-amber-300 font-bold">Comparação somente exploratória — não é uma medição contratual</p>
+ <p class="text-slate-400 text-sm mt-2">As gravações são de unidades diferentes. Não representam um antes/depois da mesma sala. A IA só fornece hipóteses; percentuais são exibidos apenas quando todos os critérios da unidade foram validados pela equipe.</p>
+</section>
+<form method="get" class="panel p-4 flex flex-wrap gap-3 items-center">
+ <label for="mesComparar">Mês de referência:</label>
+ <input id="mesComparar" type="month" name="mes" value="{{ mes }}"
+        class="bg-[#090e17] border border-slate-700 rounded p-2"/>
+ <button type="submit" class="btn btn-primary">Atualizar comparação</button>
+</form>
+<div class="grid lg:grid-cols-2 gap-4">
+ {% for c in comparativos %}
+ <section class="panel p-5 space-y-3">
+  <div class="flex justify-between items-start gap-2 flex-wrap">
+   <div>
+    <p class="text-xs text-cyan-300">Pavimento {{ c.cfg.apartamento.andar }}</p>
+    <h2 class="font-bold text-xl">{{ c.cfg.apartamento.numero }}</h2>
+   </div>
+   <a class="btn btn-muted" href="{% url 'unidade_inteligente' c.cfg.apartamento_id %}">Abrir unidade e QR</a>
+  </div>
+  <div class="bg-[#090e17] border border-slate-800 p-3 rounded-lg">
+   <p class="text-slate-400 text-xs uppercase">Avanço físico ponderado e validado</p>
+   <p class="text-2xl font-black mt-1 {% if c.resumo.percentual != None %}text-cyan-400{% else %}text-amber-300{% endif %}">
+    {% if c.resumo.percentual != None %}{{ c.resumo.percentual }}%{% else %}Indisponível{% endif %}
+   </p>
+   <p class="text-slate-400 text-xs mt-1">Cobertura {{ c.resumo.n_validados }}/{{ c.resumo.n_criterios }} critérios. Pesos {{ c.resumo.peso_total }}%.</p>
+  </div>
+  {% if c.vistoria %}
+   <p class="text-sm"><strong>Última vistoria:</strong> {{ c.vistoria.criado_em|date:"d/m/Y H:i" }} · {{ c.vistoria.get_estado_display }}</p>
+   <p class="text-xs text-slate-400">Evidências classificadas: {{ c.visuais }} visuais/áudio+vídeo, {{ c.audio }} apenas declaradas e {{ c.incertos }} incertas.</p>
+   <a href="{% url 'detalhe_vistoria_inteligente' c.vistoria.pk %}" class="text-cyan-300 underline text-sm">Revisar vídeo e diagnóstico</a>
+   {% if c.vistoria.resumo_ia %}
+   <div class="border-l-2 border-cyan-400 pl-3 text-sm text-slate-200">
+     <p class="text-xs text-amber-300">Resumo da IA — ainda não aprovado</p>
+     <p class="whitespace-pre-line mt-1">{{ c.vistoria.resumo_ia }}</p>
+   </div>
+   {% endif %}
+   {% for s in c.sugestoes %}
+   <div class="bg-[#090e17] p-3 rounded-lg text-xs border border-slate-800">
+    <p class="font-semibold">{{ s.criterio.servico.nome }} / {{ s.criterio.codigo }} · {{ s.get_fonte_display }}</p>
+    <p class="mt-2 whitespace-pre-line text-slate-300">{{ s.justificativa }}</p>
+    <p class="text-slate-400 mt-1">Hipótese:
+      {% if s.percentual_sugerido != None %}{{ s.percentual_sugerido }}% da subetapa{% else %}Não mensurável com este vídeo{% endif %}
+    </p>
+   </div>
+   {% empty %}
+   <p class="text-sm text-slate-400">Nenhuma sugestão registrada. O vídeo pode estar pendente de análise.</p>
+   {% endfor %}
+  {% else %}
+   <p class="text-slate-400 text-sm">Nenhum vídeo enviado para esta sala.</p>
+  {% endif %}
+ </section>
+ {% empty %}
+ <section class="panel p-5 text-slate-400">Nenhuma sala vinculada à tipologia selecionada.</section>
+ {% endfor %}
+</div>
+{% endblock %}
