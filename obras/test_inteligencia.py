@@ -272,6 +272,47 @@ class InteligenciaTests(TestCase):
         self.client.force_login(self.gestor)
         self.assertContains(self.client.get(reverse('detalhe_vistoria_inteligente',args=[visto.pk])),'Sugestões por critério')
 
+    def test_gemini_novo_usa_interactions_e_registra_modelo_correto(self):
+        """Mock: não transfere nenhum vídeo nem chama API real."""
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        from .gemini_multimodal import _consultar_gemini
+
+        visto = VistoriaInteligente.objects.create(
+            apartamento=self.apto, arquivo=video_teste(),
+            enviado_por=self.gestor, observacao='Caixas e paredes fictícias.',
+        )
+        arquivo_remoto = SimpleNamespace(
+            name='files/mock-123', uri='https://mock.invalid/video',
+            mime_type='video/mp4',
+            state=SimpleNamespace(name='ACTIVE'),
+        )
+        sdk = MagicMock()
+        sdk.files.upload.return_value = arquivo_remoto
+        sdk.interactions.create.return_value.output_text = RelatoMultimodal(
+            resumo='Há paredes e caixas aparentes no vídeo fictício.',
+            transcricao_narrada='Caixas elétricas na parede.',
+            sugestoes=[],
+        ).model_dump_json()
+
+        with override_settings(GEMINI_API_KEY='chave-ficticia',
+                               GEMINI_MODEL='gemini-3.8-flash'):
+            with patch('google.genai.Client', return_value=sdk):
+                resposta = _consultar_gemini(visto, [], [])
+
+        self.assertIn('paredes', resposta.resumo)
+        parametros = sdk.interactions.create.call_args.kwargs
+        self.assertEqual(parametros['model'], 'gemini-3.8-flash')
+        self.assertEqual(parametros['input'][0]['type'], 'video')
+        self.assertEqual(parametros['input'][0]['uri'], arquivo_remoto.uri)
+        self.assertEqual(parametros['input'][1]['type'], 'text')
+        self.assertEqual(parametros['response_format']['mime_type'],
+                         'application/json')
+        self.assertIn('properties',
+                      parametros['response_format']['schema'])
+        sdk.models.generate_content.assert_not_called()
+        sdk.files.delete.assert_called_once_with(name=arquivo_remoto.name)
+
     def test_item_de_projeto_apenas_conferido_entra_no_prompt(self):
         doc=DocumentoProjeto.objects.create(
             tipologia=self.tipo,nome='Planta fictícia',disciplina='ELE',
