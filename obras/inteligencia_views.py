@@ -27,6 +27,7 @@ from .models import (
     VistoriaInteligente, SugestaoEtapaIA, EventoMedicaoCriterio, Apartamento,
 )
 from .parametros import progresso_unidade, validar_medicao
+from .modelos_inteligentes import validar_mes_referencia
 
 
 def apenas_gestor(usuario):
@@ -383,3 +384,46 @@ def documento_visualizacao(request,documento_id):
     resposta['Cache-Control']='private, no-store'
     resposta['X-Content-Type-Options']='nosniff'
     return resposta
+
+
+@login_required(login_url='login_sistema')
+@never_cache
+def comparar_unidades_tipologia(request, tipologia_id):
+    """Compara vistorias de salas da MESMA tipologia, sem inferir avanço de imagens parciais."""
+    apenas_gestor(request.user)
+    tipo = get_object_or_404(
+        TipologiaUnidade.objects.select_related('torre'), pk=tipologia_id
+    )
+    mes = request.GET.get('mes', timezone.localdate().strftime('%Y-%m'))
+    try:
+        validar_mes_referencia(mes)
+    except ValidationError:
+        mes = timezone.localdate().strftime('%Y-%m')
+
+    unidades = UnidadeInteligente.objects.filter(
+        tipologia=tipo, ativo=True
+    ).select_related('apartamento__torre').order_by(
+        'apartamento__andar','apartamento__numero'
+    )[:25]
+    comparativos = []
+    for cfg in unidades:
+        registro = cfg.apartamento.vistorias_inteligentes.select_related(
+            'enviado_por'
+        ).prefetch_related(
+            'sugestoes__criterio__servico'
+        ).order_by('-criado_em','-pk').first()
+        sugestoes = list(registro.sugestoes.all()) if registro else []
+        comparativos.append({
+            'cfg': cfg,
+            'vistoria': registro,
+            'sugestoes': sugestoes,
+            'resumo': progresso_unidade(cfg, mes),
+            'visuais': sum(s.fonte in ('VISUAL', 'AMBAS') for s in sugestoes),
+            'audio': sum(s.fonte == 'AUDIO' for s in sugestoes),
+            'incertos': sum(s.fonte == 'INCERTO' for s in sugestoes),
+        })
+    return render(request, 'obras/comparar_unidades_tipologia.html', {
+        'tipo': tipo,
+        'mes': mes,
+        'comparativos': comparativos,
+    })
