@@ -59,6 +59,41 @@ class OperacoesTests(TestCase):
         pagina = self.client.get(reverse('lista_rncs'))
         self.assertContains(pagina, 'Falta de verga')
 
+    def test_abrir_rnc_por_auxiliar_revoga_fvs_aprovada_sem_mudar_progresso(self):
+        # Regra intencional: qualquer usuário autenticado pode comunicar falha,
+        # mesmo após aprovação da FVS. O histórico deve mostrar a revogação.
+        self.client.force_login(self.tecnico)
+        ItemFVS.objects.create(
+            medicao=self.medicao, descricao='Inspeção anterior da unidade',
+            resultado='CONFORME', verificado_por=self.tecnico,
+        )
+        resposta = self.client.post(
+            reverse('avaliar_apartamento', args=[self.medicao.pk]), {
+                'acao': 'manual', 'percentual': '45',
+                'status_iso': 'CONFORME',
+                'etapa_atual': 'Inspeção geral finalizada',
+            }
+        )
+        self.assertEqual(resposta.status_code, 302)
+        self.medicao.refresh_from_db()
+        self.assertEqual(self.medicao.status_iso, 'CONFORME')
+        self.assertEqual(self.medicao.fvs_aprovada_por, self.tecnico)
+
+        self.client.force_login(self.auxiliar)
+        pagina = self.client.get(reverse('abrir_rnc_pagina', args=[self.medicao.pk]))
+        self.assertContains(pagina, 'revoga qualquer aprovação anterior')
+        self.assertEqual(self.postar_rnc().status_code, 302)
+        self.medicao.refresh_from_db()
+        self.assertEqual(self.medicao.status_iso, 'NAO_CONFORME')
+        self.assertEqual(self.medicao.percentual_concluido, 45)
+        self.assertIsNone(self.medicao.fvs_aprovada_por)
+        self.assertIsNone(self.medicao.fvs_aprovada_em)
+        historico = list(HistoricoMedicao.objects.filter(medicao=self.medicao))
+        self.assertEqual(len(historico), 2)
+        self.assertEqual(historico[0].status_anterior, 'CONFORME')
+        self.assertEqual(historico[0].status_novo, 'NAO_CONFORME')
+        self.assertEqual(historico[0].autor, self.auxiliar)
+
     def test_usuario_comum_nao_pode_encerrar_rnc(self):
         self.client.force_login(self.auxiliar)
         self.postar_rnc()
