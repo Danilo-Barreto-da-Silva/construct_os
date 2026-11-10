@@ -54,7 +54,7 @@
    <strong>{{ sugestao.criterio.servico.nome }} / {{ sugestao.criterio.descricao }}</strong>
    <span class="text-amber-300 text-sm">{{ sugestao.get_fonte_display }}</span>
   </div>
-  <p class="text-sm mt-2">{{ sugestao.justificativa }}</p>
+  <p class="text-sm mt-2">{{ sugestao.justificativa_exibida|linebreaksbr }}</p>
   <p class="text-xs text-slate-400 mt-2">
    Sugestão:
    {% if sugestao.percentual_sugerido != None %}{{ sugestao.percentual_sugerido }}%{% else %}Não verificável{% endif %}
