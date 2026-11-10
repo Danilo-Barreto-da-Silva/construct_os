@@ -386,21 +386,40 @@ def avaliar_apartamento(request, medicao_id):
                 raise ValueError('Informe uma etapa com até 100 caracteres.')
             if status == 'CONFORME' and not request.user.is_staff:
                 raise PermissionDenied('Somente um membro autorizado pode registrar FVS conforme.')
-            if status != 'NAO_CONFORME' and medicao.rncs.exclude(
-                    situacao='RESOLVIDA').exists():
-                raise ValueError(
-                    'Existem RNCs formais abertas. A FVS permanece não conforme até tratamento.'
-                )
-            if status == 'CONFORME' and medicao.itens_fvs.exclude(
-                    resultado__in=['CONFORME', 'NA']).exists():
-                raise ValueError('Existem itens de FVS não aprovados ou não verificados.')
-
             with transaction.atomic():
                 medicao = MedicaoMensal.objects.select_for_update().get(pk=medicao_id)
                 percentual_anterior = medicao.percentual_concluido
                 status_anterior = medicao.status_iso
                 etapa_anterior = medicao.etapa_atual
                 observacao_anterior = medicao.laudo_ia
+
+                # A autorização incide sobre a TRANSIÇÃO, não apenas sobre
+                # o estado solicitado. Um operador não pode desfazer uma
+                # aprovação para editar a medição por outra via.
+                if status_anterior == 'CONFORME' and not request.user.is_staff:
+                    raise PermissionDenied(
+                        'FVS aprovada: somente a equipe autorizada pode alterar '
+                        'este registro. Para apontar problemas, abra uma RNC.'
+                    )
+
+                # Verificar contra o estado mais recente, já dentro da
+                # transação da medição. Um checklist vazio não aprova FVS.
+                if status != 'NAO_CONFORME' and medicao.rncs.exclude(
+                        situacao='RESOLVIDA').exists():
+                    raise ValueError(
+                        'Existem RNCs formais abertas. A FVS permanece não conforme até tratamento.'
+                    )
+                if status == 'CONFORME':
+                    if not medicao.itens_fvs.exists():
+                        raise ValueError(
+                            'Cadastre e verifique pelo menos um item do checklist '
+                            'antes de aprovar a FVS.'
+                        )
+                    if medicao.itens_fvs.exclude(
+                            resultado__in=['CONFORME', 'NA']).exists():
+                        raise ValueError(
+                            'Existem itens de FVS não aprovados ou não verificados.'
+                        )
 
                 medicao.percentual_concluido = percentual
                 medicao.status_iso = status
