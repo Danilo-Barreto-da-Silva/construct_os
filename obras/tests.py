@@ -40,6 +40,51 @@ class SecurityTests(TestCase):
         self.assertRedirects(response, "/", fetch_redirect_response=False)
 
     @override_settings(DEBUG=True)
+
+    def test_login_bloqueia_apos_cinco_senhas_erradas_sem_revelar_conta(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        get_user_model().objects.create_user(
+            'login-limite', password='senha-correta-de-teste'
+        )
+        url = reverse('login_sistema')
+        for _ in range(5):
+            resp = self.client.post(url, {
+                'username': 'login-limite', 'password': 'senha-incorreta',
+            }, REMOTE_ADDR='192.0.2.15')
+            self.assertEqual(resp.status_code, 200)
+        with self.assertLogs('obras.views', level='WARNING') as captured:
+            resp = self.client.post(url, {
+                'username': 'login-limite', 'password': 'senha-correta-de-teste',
+            }, REMOTE_ADDR='192.0.2.15')
+        self.assertEqual(resp.status_code, 429)
+        self.assertContains(resp, 'Muitas tentativas de acesso', status_code=429)
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertIn('Login bloqueado', captured.output[0])
+        liberado = self.client.post(url, {
+            'username': 'login-limite', 'password': 'senha-correta-de-teste',
+        }, REMOTE_ADDR='192.0.2.16')
+        self.assertEqual(liberado.status_code, 302)
+
+    def test_login_nao_registra_username_ou_ip_nas_chaves_do_cache(self):
+        from django.core.cache import cache
+        from .seguranca_login import _chaves, registrar_falha, esta_bloqueado
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+        class Requisicao:
+            META = {'REMOTE_ADDR': '192.0.2.17'}
+
+        req = Requisicao()
+        chaves = _chaves(req, 'Nome.Usuario')
+        self.assertTrue(all(
+            'Nome.Usuario' not in c and '192.0.2.17' not in c
+            for c in chaves
+        ))
+        registrar_falha(req, 'Nome.Usuario')
+        self.assertFalse(esta_bloqueado(req, 'Nome.Usuario'))
+
     def test_demo_never_deletes_existing_towers(self):
         from .models import Torre
         user = get_user_model().objects.create_superuser("owner2", "owner2@example.com", "safe-password-for-test")
