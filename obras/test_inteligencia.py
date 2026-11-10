@@ -184,6 +184,24 @@ class InteligenciaTests(TestCase):
         })
         self.assertEqual(resp.status_code,403)
 
+    def test_relatorio_antigo_exibe_quebras_de_linha_sem_alterar_registro(self):
+        visto = VistoriaInteligente.objects.create(
+            apartamento=self.apto, enviado_por=self.gestor, arquivo=video_teste(),
+            estado='ANALISADA'
+        )
+        # Modelo antigo gravava as duas letras barra-n em vez de newline.
+        original = r'Caixas chumbadas.\nVISUAL: Caixas amarelas.\nPENDENTE: Conferir projeto.'
+        sugestao = SugestaoEtapaIA.objects.create(
+            vistoria=visto, criterio=self.c1, fonte='VISUAL', justificativa=original
+        )
+        self.client.force_login(self.gestor)
+        response = self.client.get(reverse('detalhe_vistoria_inteligente', args=[visto.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Caixas chumbadas.<br>VISUAL: Caixas amarelas.')
+        self.assertNotContains(response, r'\nVISUAL:')
+        sugestao.refresh_from_db()
+        self.assertEqual(sugestao.justificativa, original)
+
     def test_video_invalido_rejeitado(self):
         self.client.force_login(self.operario)
         resp=self.client.post(reverse('enviar_video_inteligente',args=[self.apto.pk]),{
