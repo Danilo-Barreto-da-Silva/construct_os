@@ -1,57 +1,99 @@
 {% extends "obras/base_operacional.html" %}
-{% block title %}Vistoria do apartamento{% endblock %}
+{% block title %}{{ cfg.apartamento.numero }} · Unidade inteligente{% endblock %}
+{% block page_heading %}Unidade {{ cfg.apartamento.numero }}{% endblock %}
 {% block content %}
-<div class="flex flex-wrap justify-between gap-3 items-center">
+<header class="flex flex-wrap items-start justify-between gap-4">
  <div>
-  <p class="text-cyan-400 text-xs uppercase tracking-widest font-bold">Vistoria inteligente por apartamento</p>
-  <h1 class="text-3xl font-black mt-1">{{ cfg.apartamento }}</h1>
-  <p class="text-slate-400 mt-1 text-sm">{{ cfg.tipologia.codigo }} · {{ cfg.tipologia.nome }}</p>
+  <p class="text-xs font-bold uppercase tracking-[.14em] text-cyan-400">Ficha técnica da unidade</p>
+  <h1 class="text-3xl md:text-4xl font-extrabold mt-2 tracking-tight">{{ cfg.apartamento.numero }}</h1>
+  <p class="text-sm sgo-muted mt-2">{{ cfg.apartamento.torre.nome }} · {{ cfg.apartamento.andar }}º pavimento · {{ cfg.tipologia.codigo }}</p>
  </div>
- <div class="flex flex-wrap gap-2">
-  {% if request.user.is_staff %}<a href="{% url 'gemeo_conceitual' cfg.apartamento_id %}" class="btn btn-primary">Explorar gêmeo virtual 3D (conceito)</a>{% endif %}
-  <a href="{% url 'catalogo_inteligente' %}?tipo={{ cfg.tipologia_id }}" class="btn btn-muted">Parâmetros e projetos</a>
+ <div class="flex flex-wrap items-center gap-2">
+  <form method="get" class="flex flex-wrap items-center gap-2"><label for="mesUnit" class="text-xs">Até o mês</label><input class="sgo-field" id="mesUnit" name="mes" type="month" value="{{ mes }}"><button type="submit" class="btn btn-muted">Aplicar</button></form>
+  <a href="{% url 'catalogo_inteligente' %}?tipo={{ cfg.tipologia_id }}" class="btn btn-muted">Projetos</a>
  </div>
+</header>
+
+<div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+ <section class="sgo-kpi">
+  <p class="sgo-kpi-label">Avanço físico verificado</p>
+  <p class="sgo-kpi-value {% if progresso.percentual != None %}text-cyan-300{% else %}text-amber-300{% endif %}">{% if progresso.percentual != None %}{{ progresso.percentual }}%{% else %}Indisponível{% endif %}</p>
+  <p class="text-xs sgo-muted">Só considera medições técnicas registradas. Não é a FVS.</p>
+ </section>
+ <section class="sgo-kpi">
+  <p class="sgo-kpi-label">Critérios conferidos</p>
+  <p class="sgo-kpi-value">{{ progresso.n_validados }} <span class="text-base text-slate-400 font-medium">/ {{ progresso.n_criterios }}</span></p>
+  <p class="text-xs sgo-muted">Critérios sem medição continuam desconhecidos, não são tratados como 0%.</p>
+ </section>
+ <section class="sgo-kpi">
+  <p class="sgo-kpi-label">Condições de cálculo</p>
+  <p class="text-lg font-bold mt-3 {% if progresso.pesos_ok and progresso.criterios_ok %}text-emerald-300{% else %}text-amber-300{% endif %}">{% if progresso.pesos_ok and progresso.criterios_ok %}Pesos configurados{% else %}Configuração incompleta{% endif %}</p>
+  <p class="text-xs sgo-muted mt-3">Peso dos serviços: {{ progresso.peso_total }}% / 100%. Os percentuais são internos a esta tipologia.</p>
+ </section>
 </div>
 
-<section class="grid md:grid-cols-3 gap-4">
- <div class="panel p-5">
-  <p class="text-slate-400 text-xs uppercase">Avanço físico verificado</p>
-  <p class="text-3xl font-black text-cyan-400 mt-2">
-   {% if progresso.percentual != None %}{{ progresso.percentual }}%{% else %}Indisponível{% endif %}
-  </p>
-  <p class="text-slate-400 text-xs mt-2">Calculado pelos critérios validados até {{ mes }}; não é o percentual oficial da FVS.</p>
- </div>
- <div class="panel p-5">
-  <p class="text-slate-400 text-xs uppercase">Cobertura técnica</p>
-  <p class="text-2xl font-black mt-2">{{ progresso.n_validados }} / {{ progresso.n_criterios }}</p>
-  <p class="text-xs text-slate-400 mt-2">Critérios com medição confirmada, sem tratar ausência como 0%.</p>
- </div>
- <div class="panel p-5">
-  <p class="text-slate-400 text-xs uppercase">Condições do cálculo</p>
-  {% if progresso.pesos_ok and progresso.criterios_ok %}
-   <p class="text-emerald-400 font-bold mt-2">Pesos configurados</p>
-  {% else %}
-   <p class="text-amber-300 font-bold mt-2">Configuração incompleta</p>
-  {% endif %}
-  <p class="text-slate-400 text-xs mt-2">Pesos de serviços: {{ progresso.peso_total }}% / 100%. Cada serviço também exige critérios somando 100%.</p>
- </div>
-</section>
+<div class="grid xl:grid-cols-3 gap-4">
+ <section class="panel p-5 xl:col-span-2 space-y-4">
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+   <div><h2 class="sgo-section-title">Avanço por serviço</h2><p class="text-xs sgo-muted mt-1">Visão rápida das medições confirmadas por critério.</p></div>
+   <span class="text-xs text-amber-300 font-semibold">Sem evidência ≠ 0%</span>
+  </div>
+  <div class="space-y-4" aria-label="Percentual verificado por serviço">
+   {% for linha in progresso.linhas %}
+   <div class="space-y-2">
+    <div class="flex justify-between gap-3 text-sm">
+     <div class="min-w-0"><span class="font-semibold">{{ linha.servico.nome }}</span><span class="text-xs text-slate-500 ml-2">{{ linha.servico.codigo }}</span></div>
+     <div class="shrink-0 font-semibold {% if linha.progresso != None %}text-cyan-300{% else %}text-slate-400{% endif %}">{% if linha.progresso != None %}{{ linha.progresso }}%{% else %}Não verificado{% endif %}</div>
+    </div>
+    <div class="h-2 bg-[#24334b] rounded-full overflow-hidden" {% if linha.progresso != None %}role="meter" aria-label="Avanço de {{ linha.servico.nome }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ linha.progresso|stringformat:'f' }}"{% endif %}>
+     {% if linha.progresso != None %}<div class="h-full bg-cyan-400 rounded-full" style="width:{{ linha.progresso|stringformat:'f' }}%"></div>{% endif %}
+    </div>
+    <p class="text-xs sgo-muted">{{ linha.n_validados }}/{{ linha.n_criterios }} subetapas medidas · peso {{ linha.peso|default_if_none:"não definido" }}%</p>
+   </div>
+   {% empty %}<p class="text-sm sgo-muted">Ainda não há serviços cadastrados.</p>{% endfor %}
+  </div>
+  <p class="text-xs sgo-muted pt-3 border-t border-slate-700">Os pesos do laboratório são provisórios. A IA gera evidências, não incrementa estes percentuais automaticamente.</p>
+ </section>
+ <aside class="space-y-4">
+  <section class="panel p-5 space-y-3">
+   <h2 class="sgo-section-title">Ações rápidas</h2>
+   <button type="button" class="btn btn-primary w-full" onclick="document.getElementById('sec-gravar').open=true;document.getElementById('sec-gravar').scrollIntoView({behavior:'smooth',block:'start'})">Nova vistoria em vídeo</button>
+   {% if ultima_vistoria %}
+   <a href="{% url 'detalhe_vistoria_inteligente' ultima_vistoria.pk %}" class="btn btn-muted w-full">Último relatório · #{{ ultima_vistoria.pk }}</a>
+   <p class="text-xs sgo-muted">Status: {{ ultima_vistoria.get_estado_display }}</p>
+   {% else %}<p class="text-xs sgo-muted">Nenhuma vistoria enviada nesta unidade.</p>{% endif %}
+   {% if request.user.is_staff %}<a href="{% url 'gemeo_conceitual' cfg.apartamento_id %}" class="btn btn-muted w-full">Prévia 3D (ilustrativa)</a>{% endif %}
+   <a href="{% url 'comparar_unidades_tipologia' cfg.tipologia_id %}" class="text-xs text-cyan-300 hover:underline block">Comparar unidades da mesma tipologia →</a>
+  </section>
+  <section class="panel p-5 space-y-3" aria-label="Cabeamento confirmado manualmente">
+   <div><p class="text-xs uppercase text-cyan-400 font-bold tracking-wide">Critério documental</p><h2 class="sgo-section-title mt-1">Cabeamento e circuitos</h2></div>
+   <p class="text-xs sgo-muted">Este critério é <strong>exclusivamente manual</strong>: câmeras podem mostrar caixas ou conduítes sem comprovar fiação instalada, continuidade ou testes.</p>
+   {% if cabeamento %}
+    <p class="text-sm font-bold {% if cabeamento_ultima %}text-emerald-300{% else %}text-amber-300{% endif %}">{% if cabeamento_ultima %}{{ cabeamento_ultima.percentual_validado }}% registrado{% else %}Aguardando informação técnica{% endif %}</p>
+    {% if cabeamento_ultima %}<p class="text-xs sgo-muted">Referência: {{ cabeamento_ultima.mes_referencia }} · {{ cabeamento_ultima.validado_por|default:"Responsável não disponível" }}</p>{% endif %}
+    {% if pode_editar %}
+     <details class="rounded-xl border border-[#2b425a] p-3" id="sec-cabeamento">
+      <summary class="cursor-pointer font-bold text-sm text-cyan-300">Registrar percentual manual</summary>
+      <form method="post" action="{% url 'validar_criterio_view' cfg.apartamento_id %}" class="space-y-3 mt-3">
+       {% csrf_token %}
+       <input type="hidden" name="criterio" value="{{ cabeamento.pk }}">
+       <div><label for="cabMes" class="block mb-1">Mês de referência</label><input id="cabMes" name="mes" type="month" value="{{ mes }}" required class="sgo-field w-full"></div>
+       <div><label for="cabPct" class="block mb-1">Execução comprovada (0–100%)</label><input id="cabPct" name="percentual" type="number" min="0" max="100" step=".01" required class="sgo-field w-full"></div>
+       <div><label for="cabObs" class="block mb-1">Registro técnico / referência da comprovação</label><textarea id="cabObs" name="observacao" maxlength="500" required rows="3" class="sgo-field w-full" placeholder="Ex.: cabeamento executado e conferido conforme planilha ELE-..."></textarea></div>
+       <button type="submit" class="btn btn-primary w-full">Salvar medição técnica</button>
+      </form>
+      <p class="text-xs sgo-muted mt-2">Registro auditável com autoria. Não aprova testes nem FVS automaticamente.</p>
+     </details>
+    {% else %}<p class="text-xs sgo-muted">Lançamento permitido somente à equipe técnica autorizada.</p>{% endif %}
+   {% else %}<p class="text-xs text-amber-300">Esta tipologia não possui o critério ELE/CAB cadastrado.</p>{% endif %}
+  </section>
+ </aside>
+</div>
 
-<section class="panel p-5 space-y-3 border-l-4 border-amber-400">
- <p class="text-amber-300 text-xs font-bold uppercase tracking-widest">PROTOCOLO DE CAMPO · PESOS PROVISÓRIOS</p>
- <h2 class="font-bold text-lg">Roteiro de filmagem — 1 a 2 minutos</h2>
- <p class="text-sm text-slate-300">Os parâmetros são um modelo de teste do processo construtivo, <strong>não foram medidos nos projetos reais</strong>. Mostre apenas áreas para as quais tenha autorização. Evite pessoas, crachás, documentos e informações de clientes.</p>
- <div class="grid md:grid-cols-3 gap-3 text-sm">
-  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">1. Introdução (10 s)</strong><p class="text-slate-400 mt-1">Identifique o ambiente sem divulgar dados pessoais. Diga a etapa da obra e o que será mostrado.</p></div>
-  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">2. Tomadas e detalhes (60–90 s)</strong><p class="text-slate-400 mt-1">Filme paredes e vãos; aproxime de caixas elétricas chumbadas, conduítes, prumadas e esperas visíveis.</p></div>
-  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">3. Pendências (10–20 s)</strong><p class="text-slate-400 mt-1">Narre o que está parcial, não iniciado ou encoberto. Não declare teste concluído sem registro.</p></div>
- </div>
- <p class="text-xs text-amber-300">Fale claramente: “Na sala, as caixas estão chumbadas; os conduítes ainda estão parciais. Na hidráulica, os ramais estão aparentes; o teste de pressão não foi verificado.” A IA separará sua fala das evidências visuais.</p>
- <p class="text-xs text-slate-400">Se a internet estiver instável, grave pelo aplicativo nativo da câmera, salve no celular e faça o upload mais tarde. É possível enviar vários vídeos curtos, um por vistoria.</p>
-</section>
-
-<div class="grid lg:grid-cols-3 gap-4">
- <section class="panel p-5 lg:col-span-2 space-y-4">
+<div class="space-y-3">
+ <div><h2 class="text-lg font-bold">Ferramentas e registros</h2><p class="text-xs sgo-muted mt-1">Abra apenas o que precisar. Os procedimentos existentes continuam disponíveis.</p></div>
+ <details class="sgo-expand" id="sec-gravar"><summary>Gravar ou enviar uma vistoria <span class="text-xs sgo-muted font-normal">Vídeo + áudio</span></summary><div class="sgo-expand-body">
+   <section class="panel p-5 lg:col-span-2 space-y-4">
   <h2 class="text-xl font-bold">Gravar vistoria com áudio</h2>
   <p class="text-sm text-slate-400">Ao filmar, mostre o ambiente, depois os detalhes e narre o que foi instalado. A fala é uma declaração, não comprovação visual. O arquivo só é enviado ao clicar em <strong>Enviar vistoria</strong>.</p>
   <div class="rounded-lg bg-black/70 border border-slate-700 overflow-hidden">
@@ -148,56 +190,23 @@
   })();
   </script>
  </section>
-
- <section class="panel p-5 space-y-4">
-  <h2 class="font-bold text-xl">QR Code da unidade</h2>
-  <div class="bg-white p-3 rounded-xl inline-block">
-   <img src="{% url 'imagem_qr' cfg.apartamento_id %}" alt="QR Code exclusivo para abrir o apartamento após login" class="w-48 h-48" />
-  </div>
-  <p class="text-xs text-slate-400">Para testar em outro celular, gere o QR acessando este site pelo endereço HTTPS do Codespaces (*.app.github.dev). Se a página estiver aberta em localhost, o código pode apontar para localhost e não funcionar fora do computador. O QR exige login.</p>
-  <a class="btn btn-muted" href="{% url 'imagem_qr' cfg.apartamento_id %}" download="qr-apartamento.svg">Baixar QR em SVG</a>
-  <form method="get">
-   <label for="mesM">Verificar avanço até o mês</label>
-   <div class="flex gap-2 mt-1">
-    <input type="month" name="mes" id="mesM" value="{{ mes }}" class="bg-[#090e17] border border-slate-700 rounded p-2 w-full"/>
-    <button class="btn btn-muted" type="submit">Ver</button>
+ </div></details>
+ <details class="sgo-expand" id="sec-relatorios"><summary>Histórico de vistorias e relatórios</summary><div class="sgo-expand-body">
+  <section class="panel p-5 space-y-3">
+ <h2 class="text-xl font-bold">Histórico de vídeos deste apartamento</h2>
+ {% for v in vistorias %}
+ <div class="border-b border-slate-800 pb-2 flex flex-wrap justify-between gap-2 text-sm">
+   <div>
+    <p class="font-semibold">{{ v.criado_em|date:"d/m/Y H:i" }} · {{ v.get_estado_display }}</p>
+    <p class="text-xs text-slate-400">Por {{ v.enviado_por|default:"usuário excluído" }}</p>
    </div>
-  </form>
- </section>
-</div>
-
-<section class="panel p-5 space-y-4">
- <h2 class="font-bold text-xl">Progresso físico por serviço</h2>
- <p class="text-xs text-slate-400">Os percentuais são calculados com pesos da tipologia ou pesos próprios da unidade. <strong>Na tipologia de laboratório, os pesos são hipóteses de teste e não representam medição física real.</strong> Nenhuma sugestão de IA altera este quadro sem validação técnica.</p>
- <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
- {% for linha in progresso.linhas %}
- <div class="bg-[#090e17] p-4 rounded-lg border border-slate-800">
-   <p class="text-xs text-slate-400">{{ linha.servico.codigo }} · peso {{ linha.peso|default_if_none:"não cadastrado" }}%</p>
-   <h3 class="font-semibold mt-1">{{ linha.servico.nome }}</h3>
-   <p class="font-black text-xl mt-2 {% if linha.progresso != None %}text-cyan-300{% else %}text-amber-300{% endif %}">
-     {% if linha.progresso != None %}{{ linha.progresso }}%{% else %}Aguardando medições{% endif %}
-   </p>
-   <p class="text-slate-400 text-xs mt-1">{{ linha.n_validados }}/{{ linha.n_criterios }} critérios com medição</p>
+   <a href="{% url 'detalhe_vistoria_inteligente' v.pk %}" class="text-cyan-300 underline">Abrir análise</a>
  </div>
- {% empty %}<p class="text-slate-400">Cadastre os serviços da tipologia primeiro.</p>{% endfor %}
- </div>
- {% if pode_editar %}
- <details class="border-t border-slate-700 pt-3">
-   <summary class="text-cyan-300 cursor-pointer font-semibold">Personalizar pesos deste apartamento</summary>
-   <p class="text-xs text-amber-300 mt-2">Ao personalizar, você deve preencher TODOS os serviços e a soma precisa ser 100%. Após medições validadas, os pesos ficam protegidos contra alterações.</p>
-   <form method="post" action="{% url 'salvar_peso_unidade' cfg.apartamento_id %}" class="mt-3">
-    {% csrf_token %}{{ formulario_peso.as_p }}
-    <button class="btn btn-primary" type="submit">Salvar peso desta unidade</button>
-   </form>
-   <p class="text-xs mt-3 text-slate-400">Pesos próprios:</p>
-   {% for p in cfg.pesos_proprios.all %}
-   <p class="text-sm">{{ p.servico.nome }} — {{ p.peso }}%</p>
-   {% empty %}<p class="text-sm text-slate-400">Usando os pesos da tipologia.</p>{% endfor %}
- </details>
- {% endif %}
+ {% empty %}<p class="text-slate-400 text-sm">Nenhum vídeo enviado ainda.</p>{% endfor %}
 </section>
-
-<section class="panel p-5 space-y-3">
+ </div></details>
+ <details class="sgo-expand" id="sec-medicoes"><summary>Critérios técnicos e medição manual</summary><div class="sgo-expand-body">
+  <section class="panel p-5 space-y-3">
  <h2 class="font-bold text-xl">Critérios e verificações</h2>
  {% for c in criterios %}
  <div class="border-b border-slate-800 pb-3">
@@ -225,8 +234,9 @@
  </details>
  {% endif %}
 </section>
-
-<section class="panel p-5 space-y-3">
+ </div></details>
+ <details class="sgo-expand" id="sec-historico"><summary>Histórico de medições confirmadas</summary><div class="sgo-expand-body">
+  <section class="panel p-5 space-y-3">
  <h2 class="text-xl font-bold">Histórico de medições verificadas</h2>
  <p class="text-slate-400 text-xs">Trilha independente da FVS: percentual de cada subetapa, autor e data, sem mudanças feitas automaticamente pela IA.</p>
  {% for evento in historico_medicoes %}
@@ -239,17 +249,55 @@
  </div>
  {% empty %}<p class="text-slate-400 text-sm">Ainda não há subetapas verificadas nesta unidade.</p>{% endfor %}
 </section>
-
-<section class="panel p-5 space-y-3">
- <h2 class="text-xl font-bold">Histórico de vídeos deste apartamento</h2>
- {% for v in vistorias %}
- <div class="border-b border-slate-800 pb-2 flex flex-wrap justify-between gap-2 text-sm">
-   <div>
-    <p class="font-semibold">{{ v.criado_em|date:"d/m/Y H:i" }} · {{ v.get_estado_display }}</p>
-    <p class="text-xs text-slate-400">Por {{ v.enviado_por|default:"usuário excluído" }}</p>
+ </div></details>
+ <details class="sgo-expand" id="sec-qr"><summary>QR Code de acesso à unidade</summary><div class="sgo-expand-body">
+   <section class="panel p-5 space-y-4">
+  <h2 class="font-bold text-xl">QR Code da unidade</h2>
+  <div class="bg-white p-3 rounded-xl inline-block">
+   <img src="{% url 'imagem_qr' cfg.apartamento_id %}" alt="QR Code exclusivo para abrir o apartamento após login" class="w-48 h-48" />
+  </div>
+  <p class="text-xs text-slate-400">Para testar em outro celular, gere o QR acessando este site pelo endereço HTTPS do Codespaces (*.app.github.dev). Se a página estiver aberta em localhost, o código pode apontar para localhost e não funcionar fora do computador. O QR exige login.</p>
+  <a class="btn btn-muted" href="{% url 'imagem_qr' cfg.apartamento_id %}" download="qr-apartamento.svg">Baixar QR em SVG</a>
+  <form method="get">
+   <label for="mesM">Verificar avanço até o mês</label>
+   <div class="flex gap-2 mt-1">
+    <input type="month" name="mes" id="mesM" value="{{ mes }}" class="bg-[#090e17] border border-slate-700 rounded p-2 w-full"/>
+    <button class="btn btn-muted" type="submit">Ver</button>
    </div>
-   <a href="{% url 'detalhe_vistoria_inteligente' v.pk %}" class="text-cyan-300 underline">Abrir análise</a>
+  </form>
+ </section>
+ </div></details>
+ <details class="sgo-expand" id="sec-protocolo"><summary>Orientações para filmagem</summary><div class="sgo-expand-body">
+  <section class="panel p-5 space-y-3 border-l-4 border-amber-400">
+ <p class="text-amber-300 text-xs font-bold uppercase tracking-widest">PROTOCOLO DE CAMPO · PESOS PROVISÓRIOS</p>
+ <h2 class="font-bold text-lg">Roteiro de filmagem — 1 a 2 minutos</h2>
+ <p class="text-sm text-slate-300">Os parâmetros são um modelo de teste do processo construtivo, <strong>não foram medidos nos projetos reais</strong>. Mostre apenas áreas para as quais tenha autorização. Evite pessoas, crachás, documentos e informações de clientes.</p>
+ <div class="grid md:grid-cols-3 gap-3 text-sm">
+  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">1. Introdução (10 s)</strong><p class="text-slate-400 mt-1">Identifique o ambiente sem divulgar dados pessoais. Diga a etapa da obra e o que será mostrado.</p></div>
+  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">2. Tomadas e detalhes (60–90 s)</strong><p class="text-slate-400 mt-1">Filme paredes e vãos; aproxime de caixas elétricas chumbadas, conduítes, prumadas e esperas visíveis.</p></div>
+  <div class="rounded-lg border border-slate-700 p-3"><strong class="text-cyan-300">3. Pendências (10–20 s)</strong><p class="text-slate-400 mt-1">Narre o que está parcial, não iniciado ou encoberto. Não declare teste concluído sem registro.</p></div>
  </div>
- {% empty %}<p class="text-slate-400 text-sm">Nenhum vídeo enviado ainda.</p>{% endfor %}
+ <p class="text-xs text-amber-300">Fale claramente: “Na sala, as caixas estão chumbadas; os conduítes ainda estão parciais. Na hidráulica, os ramais estão aparentes; o teste de pressão não foi verificado.” A IA separará sua fala das evidências visuais.</p>
+ <p class="text-xs text-slate-400">Se a internet estiver instável, grave pelo aplicativo nativo da câmera, salve no celular e faça o upload mais tarde. É possível enviar vários vídeos curtos, um por vistoria.</p>
 </section>
+ </div></details>
+ {% if pode_editar %}
+ <details class="sgo-expand" id="sec-pesos"><summary>Configuração avançada: pesos personalizados</summary><div class="sgo-expand-body">
+   {% if pode_editar %}
+ <details class="border-t border-slate-700 pt-3">
+   <summary class="text-cyan-300 cursor-pointer font-semibold">Personalizar pesos deste apartamento</summary>
+   <p class="text-xs text-amber-300 mt-2">Ao personalizar, você deve preencher TODOS os serviços e a soma precisa ser 100%. Após medições validadas, os pesos ficam protegidos contra alterações.</p>
+   <form method="post" action="{% url 'salvar_peso_unidade' cfg.apartamento_id %}" class="mt-3">
+    {% csrf_token %}{{ formulario_peso.as_p }}
+    <button class="btn btn-primary" type="submit">Salvar peso desta unidade</button>
+   </form>
+   <p class="text-xs mt-3 text-slate-400">Pesos próprios:</p>
+   {% for p in cfg.pesos_proprios.all %}
+   <p class="text-sm">{{ p.servico.nome }} — {{ p.peso }}%</p>
+   {% empty %}<p class="text-sm text-slate-400">Usando os pesos da tipologia.</p>{% endfor %}
+ </details>
+ {% endif %}
+ </div></details>
+ {% endif %}
+</div>
 {% endblock %}
