@@ -83,6 +83,25 @@ class SecurityTests(TestCase):
         registrar_falha(req, 'Nome.Usuario')
         self.assertFalse(esta_bloqueado(req, 'Nome.Usuario'))
 
+    def test_login_limite_global_do_ip_impede_varredura_de_usuarios(self):
+        from django.core.cache import cache
+        from .seguranca_login import registrar_falha, esta_bloqueado
+        cache.clear()
+        self.addCleanup(cache.clear)
+
+        class Requisicao:
+            META = {'REMOTE_ADDR': '192.0.2.31'}
+
+        req = Requisicao()
+        for indice in range(20):
+            registrar_falha(req, f'conta-inexistente-{indice}')
+        # Um novo nome é bloqueado mesmo que não tenha tentativas próprias.
+        self.assertTrue(esta_bloqueado(req, 'outro-usuario'))
+        # O bloqueio não é aplicado a um IP diferente.
+        class OutraRequisicao:
+            META = {'REMOTE_ADDR': '192.0.2.32'}
+        self.assertFalse(esta_bloqueado(OutraRequisicao(), 'outro-usuario'))
+
     @override_settings(DEBUG=True)
     def test_demo_never_deletes_existing_towers(self):
         from .models import Torre
