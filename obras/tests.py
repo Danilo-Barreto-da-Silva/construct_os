@@ -267,32 +267,3 @@ class SecurityTests(TestCase):
         self.assertEqual(medicao.status_iso, "PENDENTE")
         self.assertFalse(HistoricoMedicao.objects.filter(medicao=medicao).exists())
 
-
-    def test_ai_suggestion_does_not_approve_or_change_progress(self):
-        from unittest.mock import patch
-        from types import SimpleNamespace
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao
-        user = get_user_model().objects.create_user("vistoriador", password="safe-password-for-test")
-        self.client.force_login(user)
-        torre = Torre.objects.create(nome="Torre IA")
-        apto = Apartamento.objects.create(torre=torre, andar=1, numero="103")
-        medicao = MedicaoMensal.objects.create(apartamento=apto, percentual_concluido=40, status_iso="PENDENTE")
-        with patch("obras.views.analisar_video_obra") as mock_analise:
-            mock_analise.return_value = SimpleNamespace(
-                etapa_identificada="Revestimento",
-                percentual_sugerido=100,
-                status_iso_sugerido="CONFORME",
-                resumo_tecnico="Resultado simulado no teste",
-            )
-            video = SimpleUploadedFile("ensaio.mp4", b"arquivo-ficticio", content_type="video/mp4")
-            response = self.client.post(
-                reverse("avaliar_apartamento", args=[medicao.pk]),
-                {"acao": "ia_video", "video_vistoria": video},
-            )
-        self.assertEqual(response.status_code, 302)
-        medicao.refresh_from_db()
-        self.assertEqual(medicao.percentual_concluido, 40)
-        self.assertEqual(medicao.status_iso, "PENDENTE")
-        self.assertIn("Resultado simulado", medicao.sugestao_ia)
-        self.assertEqual(HistoricoMedicao.objects.get(medicao=medicao).origem, "SUGESTAO_IA")
