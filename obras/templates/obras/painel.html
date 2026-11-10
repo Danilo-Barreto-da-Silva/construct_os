@@ -167,18 +167,6 @@
             </div>
 
             <p id="modalSugestao" class="text-xs text-amber-300 whitespace-pre-line"></p>
-            <form id="formIA" method="POST" enctype="multipart/form-data" class="bg-cyan-950/30 border border-cyan-500/40 p-4 rounded-xl space-y-3">
-                {% csrf_token %}
-                <input type="hidden" name="acao" value="ia_video">
-                <label class="text-xs font-bold text-cyan-300 block uppercase">🎥 Enviar vídeo para sugestão da IA (sem alterar medição ou FVS)</label>
-                <div class="flex flex-wrap gap-2">
-                    <input type="file" name="video_vistoria" accept="video/*" capture="environment" required class="flex-1 text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-cyan-500 file:text-slate-950 file:font-bold">
-                    <button type="submit" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-lg transition">
-                        🤖 Solicitar sugestão da IA
-                    </button>
-                </div>
-            </form>
-
             <form id="formManual" method="POST" class="space-y-4 pt-2 border-t border-slate-800">
                 {% csrf_token %}
                 <input type="hidden" name="acao" value="manual">
@@ -267,7 +255,6 @@ function abrirModal(id, titulo, pct, etapa, status, req, laudo, sugestao) {
             document.getElementById('inputEtapa').value = etapa;
             document.getElementById('inputStatus').value = status;
             document.getElementById('inputLaudo').value = laudo;
-            document.getElementById('formIA').action = `/apartamento/${id}/avaliar/`;
             document.getElementById('formManual').action = `/apartamento/${id}/avaliar/`;
             document.getElementById('linkHistorico').href = `/apartamento/${id}/historico/`;
             document.getElementById('linkChecklist').href = `/qualidade/fvs/${id}/`;
