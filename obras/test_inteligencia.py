@@ -354,6 +354,27 @@ class InteligenciaTests(TestCase):
         self.assertEqual(len(refs),1)
         self.assertEqual(refs[0]['folha'],1)
 
+    def test_falha_gemini_deixa_log_sem_criar_medicao(self):
+        visto = VistoriaInteligente.objects.create(
+            apartamento=self.apto, arquivo=video_teste(),
+            enviado_por=self.gestor, estado='PENDENTE',
+        )
+        with patch(
+            'obras.gemini_multimodal._consultar_gemini',
+            side_effect=RuntimeError('Falha fictícia de teste'),
+        ):
+            with self.assertLogs('obras.gemini_multimodal', level='ERROR') as registros:
+                with self.assertRaises(RuntimeError):
+                    processar_vistoria(visto.pk)
+        visto.refresh_from_db()
+        self.assertEqual(visto.estado, 'ERRO')
+        self.assertEqual(visto.sugestoes.count(), 0)
+        self.assertFalse(MedicaoCriterio.objects.exists())
+        self.assertTrue(any(
+            f'vistoria id={visto.pk}' in linha for linha in registros.output
+        ))
+        self.assertNotIn('Falha fictícia de teste', visto.erro_publico)
+
     def test_vistoria_interrompida_exige_confirmacao_e_nao_chama_gemini(self):
         from io import StringIO
 
