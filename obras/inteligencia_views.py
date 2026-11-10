@@ -1,5 +1,6 @@
 """Páginas seguras de projetos, QR Code e revisão de vistoria multimodal."""
 import hashlib
+import logging
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
@@ -15,6 +16,9 @@ from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+
+logger = logging.getLogger(__name__)
+
 
 from .forms_inteligentes import (
     TipologiaForm, AmbienteForm, ServicoTipoForm, CriterioForm, UnidadeForm,
@@ -292,6 +296,7 @@ def video_privado(request,vistoria_id):
     try:
         arquivo = visto.arquivo.open('rb')
     except OSError:
+        logger.warning('Vídeo privado indisponível para vistoria id=%s', visto.pk)
         raise Http404('Arquivo indisponível.')
     resp = FileResponse(arquivo,as_attachment=True,filename=f'vistoria-{visto.pk}.webm')
     resp['Cache-Control']='private, no-store'
@@ -307,6 +312,7 @@ def documento_privado(request,documento_id):
     try:
         arquivo = doc.arquivo.open('rb')
     except OSError:
+        logger.warning('Documento privado indisponível id=%s', doc.pk)
         raise Http404('Documento indisponível.')
     resp = FileResponse(arquivo,as_attachment=True,filename=f'projeto-{doc.pk}.pdf')
     resp['Cache-Control']='private, no-store'
@@ -375,6 +381,7 @@ def video_reproducao(request,vistoria_id):
     try:
         arquivo=visto.arquivo.open('rb')
     except OSError:
+        logger.warning('Vídeo privado indisponível para vistoria id=%s', visto.pk)
         raise Http404('Arquivo indisponível.')
     extensao=Path(visto.arquivo.name).suffix.lower()
     mime={'.mp4':'video/mp4','.mov':'video/quicktime','.webm':'video/webm'}.get(
@@ -396,6 +403,7 @@ def documento_visualizacao(request,documento_id):
     try:
         arquivo=doc.arquivo.open('rb')
     except OSError:
+        logger.warning('Documento privado indisponível id=%s', doc.pk)
         raise Http404('Documento indisponível.')
     resposta=FileResponse(arquivo,content_type='application/pdf')
     resposta['Content-Disposition']='inline'
