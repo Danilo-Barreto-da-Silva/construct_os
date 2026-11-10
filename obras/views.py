@@ -1,5 +1,3 @@
-import os
-import tempfile
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
@@ -11,7 +9,6 @@ from django.db import transaction
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao, NaoConformidade, PlanejamentoMensal
-from .ia_vistoria import analisar_video_obra
 from .curva_s import consolidar_curva
 
 def login_sistema(request):
@@ -315,61 +312,13 @@ def avaliar_apartamento(request, medicao_id):
     acao = request.POST.get('acao')
 
     if acao == 'ia_video':
-        video = request.FILES.get('video_vistoria')
-        if not video:
-            messages.error(request, 'Selecione um vídeo antes de solicitar análise.')
-        elif video.size > 30 * 1024 * 1024:
-            messages.error(request, 'Vídeo excede o limite de 30 MB.')
-        elif not video.name.lower().endswith(('.mp4', '.mov', '.webm')):
-            messages.error(request, 'Formato não permitido. Utilize MP4, MOV ou WebM.')
-        elif video.content_type not in (
-                'video/mp4', 'video/quicktime', 'video/webm', 'application/octet-stream'):
-            messages.error(request, 'O arquivo selecionado não foi identificado como vídeo.')
-        elif settings.GEMINI_API_KEY == 'MODO_SIMULACAO':
-            messages.error(request, 'Configure GEMINI_API_KEY para analisar vídeos reais.')
-        else:
-            temp_path = None
-            try:
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp:
-                    for chunk in video.chunks():
-                        tmp.write(chunk)
-                    temp_path = tmp.name
-
-                laudo = analisar_video_obra(
-                    temp_path, medicao.apartamento.numero, medicao.requisito_iso
-                )
-                sugestao = (
-                    f"Etapa sugerida: {laudo.etapa_identificada}\n"
-                    f"Avanço sugerido: {laudo.percentual_sugerido}%\n"
-                    f"Status sugerido: {laudo.status_iso_sugerido}\n"
-                    f"Análise: {laudo.resumo_tecnico}"
-                )
-                with transaction.atomic():
-                    medicao = MedicaoMensal.objects.select_for_update().get(pk=medicao_id)
-                    medicao.sugestao_ia = sugestao
-                    medicao.save(update_fields=['sugestao_ia'])
-                    HistoricoMedicao.objects.create(
-                        medicao=medicao, autor=request.user, origem='SUGESTAO_IA',
-                        percentual_anterior=medicao.percentual_concluido,
-                        percentual_novo=medicao.percentual_concluido,
-                        status_anterior=medicao.status_iso,
-                        status_novo=medicao.status_iso,
-                        etapa_anterior=medicao.etapa_atual,
-                        etapa_nova=medicao.etapa_atual,
-                        observacao=sugestao[:2000],
-                    )
-                messages.info(
-                    request,
-                    'Sugestão registrada no histórico. A medição e a FVS não foram alteradas.'
-                )
-            except Exception:
-                messages.error(
-                    request,
-                    'Não foi possível analisar o vídeo. Confira a configuração e tente novamente.'
-                )
-            finally:
-                if temp_path and os.path.exists(temp_path):
-                    os.remove(temp_path)
+        # Endpoint antigo mantido apenas para mensagens de compatibilidade:
+        # nenhuma chamada à API é iniciada por requisição HTTP.
+        messages.error(
+            request,
+            'O envio de vídeo foi transferido para Vistorias Inteligentes. '
+            'Abra a unidade correspondente para registrar uma nova vistoria.'
+        )
 
     elif acao == 'manual':
         try:
