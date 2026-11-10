@@ -130,7 +130,7 @@ class PilotoComercialTests(TestCase):
         self.assertContains(response, 'Painel executivo')
         self.assertContains(response, 'SALA-01')
         self.assertContains(response, 'SALA-02')
-        self.assertContains(response, 'Sem medições no período')
+        self.assertContains(response, 'Unidades para vistoria inteligente')
         self.assertEqual(len(response.context['unidades_inteligentes']), 2)
 
     def test_ficha_unidade_exibe_graficos_e_cabeamento_manual(self):
