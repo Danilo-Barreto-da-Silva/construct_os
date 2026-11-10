@@ -259,10 +259,16 @@ def detalhe_vistoria_inteligente(request,vistoria_id):
     )
     pode_ver_video(request.user, visto)
     cfg = get_object_or_404(UnidadeInteligente,apartamento=visto.apartamento,ativo=True)
+    sugestoes = list(visto.sugestoes.select_related(
+        'criterio__servico','revisado_por'
+    ))
+    # Relatorios anteriores foram salvos com barras-n literais.
+    # Normalizar apenas na exibicao preserva o registro original auditavel.
+    for sugestao in sugestoes:
+        sugestao.justificativa_exibida = sugestao.justificativa.replace('\\n', '\n')
     return render(request,'obras/detalhe_vistoria_inteligente.html',{
-        'visto':visto,'cfg':cfg,'sugestoes':visto.sugestoes.select_related(
-            'criterio__servico','revisado_por'
-        ),'pode_editar':request.user.is_staff,
+        'visto':visto,'cfg':cfg,'sugestoes':sugestoes,
+        'pode_editar':request.user.is_staff,
     })
 
 
