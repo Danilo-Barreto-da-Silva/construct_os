@@ -1,74 +1,88 @@
 {% extends "obras/base_operacional.html" %}
-{% block title %}Análise de vistoria{% endblock %}
+{% block title %}Vistoria #{{ visto.pk }}{% endblock %}
+{% block page_heading %}Relatório multimodal{% endblock %}
 {% block content %}
-<div class="flex flex-wrap items-center justify-between gap-3">
+<header class="flex flex-wrap items-start justify-between gap-4">
  <div>
-  <p class="text-cyan-400 text-xs uppercase tracking-widest font-semibold">Registro multimodal auditável</p>
-  <h1 class="text-3xl font-black mt-2">Vistoria #{{ visto.pk }} — {{ visto.apartamento }}</h1>
-  <p class="text-slate-400 text-sm mt-2">
-   {{ visto.criado_em|date:"d/m/Y H:i" }} · {{ visto.get_estado_display }}
-   · Enviada por {{ visto.enviado_por|default:"usuário excluído" }}
-  </p>
+  <p class="text-xs uppercase tracking-[.14em] text-cyan-400 font-bold">Relatório de vistoria · registro auditável</p>
+  <h1 class="text-3xl md:text-4xl font-extrabold mt-2">Vistoria #{{ visto.pk }}</h1>
+  <p class="text-sm sgo-muted mt-2">{{ visto.apartamento }} · {{ visto.criado_em|date:"d/m/Y H:i" }}</p>
  </div>
- <a href="{% url 'unidade_inteligente' visto.apartamento_id %}" class="btn btn-muted">Voltar à unidade</a>
+ <div class="flex flex-wrap gap-2">
+  <a href="{% url 'unidade_inteligente' visto.apartamento_id %}" class="btn btn-muted">Voltar à unidade</a>
+  <a href="{% url 'video_privado' visto.pk %}" class="btn btn-primary">Baixar vídeo</a>
+ </div>
+</header>
+
+<div class="grid md:grid-cols-3 gap-4">
+ <section class="sgo-kpi"><p class="sgo-kpi-label">Análise</p><p class="font-bold text-xl mt-2 {% if visto.estado == 'ANALISADA' %}text-emerald-300{% elif visto.estado == 'ERRO' %}text-rose-300{% else %}text-amber-300{% endif %}">{{ visto.get_estado_display }}</p><p class="text-xs sgo-muted mt-2">{{ visto.modelo|default:"Modelo ainda não registrado" }}</p></section>
+ <section class="sgo-kpi"><p class="sgo-kpi-label">Sugestões encontradas</p><p class="sgo-kpi-value">{{ sugestoes|length }}</p><p class="text-xs sgo-muted">Hipóteses não aprovadas automaticamente</p></section>
+ <section class="sgo-kpi"><p class="sgo-kpi-label">Responsável pela captura</p><p class="font-bold mt-3 text-sm break-words">{{ visto.enviado_por|default:"Usuário excluído" }}</p><p class="text-xs sgo-muted mt-3">A IA não altera o avanço físico nem a FVS.</p></section>
 </div>
-<section class="panel p-5 space-y-3">
- <h2 class="font-bold text-lg">Vídeo, áudio e segurança</h2>
- <p class="text-slate-400 text-sm">O arquivo original permanece privado, disponível apenas a usuários autenticados. Evite filmar rostos e dados pessoais sem base legal e permissão.</p>
- <div class="flex flex-wrap gap-2"><a class="btn btn-primary" href="{% url 'video_privado' visto.pk %}">Baixar vídeo original</a><a class="btn btn-muted" href="{% url 'comparar_vistoria_projeto' visto.pk %}">Comparar vídeo × projeto PDF</a></div>
- <p class="text-sm"><strong>Observação do vistoriador:</strong> {{ visto.observacao|default:"Nenhuma" }}</p>
- <p class="text-sm"><strong>Status de IA:</strong> {{ visto.get_estado_display }}. Modelo: {{ visto.modelo|default:"Ainda não processado" }}.</p>
- {% if visto.erro_publico %}<p class="text-amber-300 text-sm">{{ visto.erro_publico }}</p>{% endif %}
- {% if visto.estado == 'PENDENTE' %}
- <p class="text-amber-300 text-sm">
-  Para processar com Gemini: configure a chave no ambiente e execute
-  <code class="text-white">python manage.py processar_vistorias --limite 1</code>
-  no terminal. O processamento é separado do envio para evitar requisições longas no celular.
- </p>
- {% elif visto.estado == 'PROCESSANDO' %}
- <p class="text-cyan-300 text-sm">Processamento em andamento. Atualize a página depois que o comando terminar.</p>
- {% elif visto.estado == 'ERRO' %}
- <p class="text-amber-300 text-sm">O arquivo não foi aprovado nem descartado. Revise o erro; uma equipe autorizada pode solicitar novamente o processamento.</p>
- {% if pode_editar %}
- <form method="post" action="{% url 'reprocessar_vistoria' visto.pk %}">
-  {% csrf_token %}<button type="submit" class="btn btn-muted">Colocar novamente na fila</button>
- </form>
- {% endif %}
- {% endif %}
-</section>
+
+{% if visto.erro_publico %}
+<section class="panel p-4 border-l-4 border-amber-400"><p class="text-sm text-amber-300">{{ visto.erro_publico }}</p></section>
+{% endif %}
 
 {% if visto.resumo_ia %}
 <section class="panel p-5 space-y-3">
- <h2 class="font-bold text-lg">Resumo da IA (não é laudo ou aprovação)</h2>
- <p class="text-sm whitespace-pre-line">{{ visto.resumo_ia }}</p>
- <h3 class="text-sm font-semibold">Narração identificada no áudio</h3>
- <p class="text-sm text-slate-400 whitespace-pre-line">{{ visto.transcricao_ia|default:"Não foi possível reconhecer uma narração confiável." }}</p>
+ <div class="flex items-center justify-between gap-3">
+  <h2 class="sgo-section-title">Resumo da vistoria</h2>
+  <span class="text-xs font-semibold text-amber-300">Gerado por IA · não é laudo</span>
+ </div>
+ <p class="text-sm text-slate-200 whitespace-pre-line leading-relaxed">{{ visto.resumo_ia }}</p>
+ <details class="sgo-expand"><summary>Consultar transcrição da narração</summary>
+  <div class="sgo-expand-body"><p class="text-sm text-slate-300 whitespace-pre-line">{{ visto.transcricao_ia|default:"Não foi possível reconhecer uma narração confiável." }}</p></div>
+ </details>
 </section>
 {% endif %}
+
 <section class="panel p-5 space-y-4">
- <h2 class="font-bold text-xl">Sugestões por critério</h2>
- <p class="text-slate-400 text-sm">As hipóteses abaixo não modificam as medições físicas nem o status ISO/FVS. Uma declaração do áudio sem evidência visual permanece distinta de uma execução comprovada.</p>
- {% for sugestao in sugestoes %}
- <div class="rounded-lg border border-slate-700 p-4 bg-[#090e17]">
-  <div class="flex flex-wrap justify-between gap-2">
-   <strong>{{ sugestao.criterio.servico.nome }} / {{ sugestao.criterio.descricao }}</strong>
-   <span class="text-amber-300 text-sm">{{ sugestao.get_fonte_display }}</span>
-  </div>
-  <p class="text-sm mt-2">{{ sugestao.justificativa_exibida|linebreaksbr }}</p>
-  <p class="text-xs text-slate-400 mt-2">
-   Sugestão:
-   {% if sugestao.percentual_sugerido != None %}{{ sugestao.percentual_sugerido }}%{% else %}Não verificável{% endif %}
-   {% if sugestao.instante_segundos != None %}· aproximadamente {{ sugestao.instante_segundos }} s do vídeo{% endif %}
-  </p>
-  {% if sugestao.revisado_por %}
-   <p class="text-emerald-400 text-xs mt-2">Revisado por {{ sugestao.revisado_por }} em {{ sugestao.revisado_em|date:"d/m/Y H:i" }}</p>
-  {% elif pode_editar %}
-  <p class="text-xs text-slate-400 mt-2">Para confirmar, abra a ficha da unidade e registre manualmente o percentual real do critério com seu nome e a referência desta vistoria.</p>
-  {% endif %}
+ <div class="flex flex-wrap justify-between items-center gap-3">
+  <div><h2 class="sgo-section-title">Sugestões por critério</h2><p class="text-xs sgo-muted mt-1">Abra cada item para ver evidência, narração e pendências. Revisão opcional do relatório não equivale à medição física.</p></div>
+  <a href="{% url 'comparar_vistoria_projeto' visto.pk %}" class="btn btn-muted">Vídeo × projeto PDF</a>
  </div>
+ {% for sugestao in sugestoes %}
+ <details class="sgo-expand" id="sugestao-{{ sugestao.pk }}">
+  <summary>
+   <span class="min-w-0">
+    <span class="text-sm font-bold block">{{ sugestao.criterio.servico.nome }}</span>
+    <span class="text-xs text-slate-300 block mt-1 font-normal">{{ sugestao.criterio.descricao }}</span>
+   </span>
+   <span class="flex flex-col items-end shrink-0 gap-1">
+    <span class="text-xs text-cyan-300">{{ sugestao.get_fonte_display }}</span>
+    <span class="text-xs font-normal sgo-muted">{% if sugestao.instante_segundos != None %}≈ {{ sugestao.instante_segundos }} s{% else %}Sem tempo marcado{% endif %}</span>
+   </span>
+  </summary>
+  <div class="sgo-expand-body text-sm space-y-3">
+   <p class="text-slate-200 leading-relaxed">{{ sugestao.justificativa_exibida|linebreaksbr }}</p>
+   <p class="text-xs text-slate-400">Percentual sugerido: {% if sugestao.percentual_sugerido != None %}{{ sugestao.percentual_sugerido }}% (não confirmado){% else %}Não verificável{% endif %}.</p>
+   {% if sugestao.criterio.servico.codigo == 'ELE' and sugestao.criterio.codigo == 'CAB' %}
+   <p class="text-xs text-amber-300 border-l-2 border-amber-400 pl-3">Registro histórico: o cabeamento passou a ser um parâmetro exclusivamente manual nas novas análises. Este texto anterior não comprova passagem de fiação.</p>
+   {% endif %}
+   {% if sugestao.revisado_por %}<p class="text-xs text-emerald-300">Revisado por {{ sugestao.revisado_por }} em {{ sugestao.revisado_em|date:"d/m/Y H:i" }}.</p>{% endif %}
+  </div>
+ </details>
  {% empty %}
- <p class="text-sm text-slate-400">Nenhuma sugestão disponível. Você ainda pode medir os critérios manualmente na ficha do apartamento.</p>
+ <p class="text-sm sgo-muted">Nenhuma sugestão disponível para esta vistoria.</p>
  {% endfor %}
- <a href="{% url 'unidade_inteligente' cfg.apartamento_id %}" class="btn btn-primary">Abrir medição humana dos critérios</a>
 </section>
+
+<details class="sgo-expand">
+ <summary>Dados de origem e ações técnicas</summary>
+ <div class="sgo-expand-body space-y-3">
+  <p class="text-sm"><strong>Observação do vistoriador:</strong> {{ visto.observacao|default:"Nenhuma" }}</p>
+  <p class="text-xs sgo-muted">Os arquivos permanecem privados e são acessíveis somente a usuários autorizados. Evite rostos e dados pessoais sem base legal e permissão.</p>
+  <p class="text-sm">O relatório é disponibilizado automaticamente. Registros físicos confirmados e FVS seguem fluxo técnico separado.</p>
+  {% if visto.estado == 'PENDENTE' %}
+   <p class="text-sm text-amber-300">Aguardando processamento separado pelo comando <code>python manage.py processar_vistorias --limite 1</code>.</p>
+  {% elif visto.estado == 'PROCESSANDO' %}
+   <p class="text-sm text-cyan-300">Processamento em andamento; atualize a página após o término.</p>
+  {% elif visto.estado == 'ERRO' %}
+   <p class="text-sm text-amber-300">A falha não descarta o vídeo.</p>
+   {% if pode_editar %}<form method="post" action="{% url 'reprocessar_vistoria' visto.pk %}">{% csrf_token %}<button type="submit" class="btn btn-muted">Colocar novamente na fila</button></form>{% endif %}
+  {% endif %}
+  <a href="{% url 'unidade_inteligente' cfg.apartamento_id %}#sec-medicoes" class="btn btn-muted">Ver critérios e medições</a>
+ </div>
+</details>
 {% endblock %}
