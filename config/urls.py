@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.conf import settings
-from obras import views, operacoes, relatorios, planejamento_atividades, inteligencia_views
+from obras import views, operacoes, relatorios, planejamento_atividades, inteligencia_views, gemeo_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -11,6 +11,7 @@ urlpatterns = [
     path('inteligencia/projeto/item/<int:item_id>/conferir/', inteligencia_views.conferir_item_projeto, name='conferir_item_projeto'),
     path('inteligencia/projeto/documento/<int:documento_id>/arquivo/', inteligencia_views.documento_privado, name='documento_privado'),
     path('inteligencia/unidade/<int:apartamento_id>/', inteligencia_views.unidade_inteligente, name='unidade_inteligente'),
+    path('inteligencia/unidade/<int:apartamento_id>/gemeo/', gemeo_views.gemeo_conceitual, name='gemeo_conceitual'),
     path('inteligencia/unidade/<int:apartamento_id>/peso/', inteligencia_views.salvar_peso_unidade, name='salvar_peso_unidade'),
     path('inteligencia/unidade/<int:apartamento_id>/validar/', inteligencia_views.validar_criterio_view, name='validar_criterio_view'),
     path('inteligencia/unidade/<int:apartamento_id>/enviar/', inteligencia_views.enviar_video_inteligente, name='enviar_video_inteligente'),
