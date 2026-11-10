@@ -2,6 +2,7 @@
 import os
 import tempfile
 import time
+import logging
 from typing import Literal
 from decimal import Decimal
 from django.conf import settings
@@ -14,6 +15,9 @@ from .models import (
     UnidadeInteligente, VistoriaInteligente, CriterioVistoria,
     ItemEsperadoProjeto, SugestaoEtapaIA,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class SugestaoEstruturada(BaseModel):
@@ -186,9 +190,12 @@ def _consultar_gemini(vistoria, lista_criterios, referencias):
             try:
                 client.files.delete(name=nome_remoto)
             except Exception:
-                # Não bloquear os dados locais por falha de exclusão remota.
-                # Para produção, registrar e monitorar políticas de retenção.
-                pass
+                # Falha não deve sobrescrever o resultado da análise.
+                # Nunca registrar URI remota, nome de arquivo ou credenciais.
+                logger.warning(
+                    'Falha ao excluir arquivo remoto da vistoria id=%s; '
+                    'verificar retenção no provedor.', vistoria.pk
+                )
         if caminho and os.path.exists(caminho):
             os.unlink(caminho)
 
@@ -203,6 +210,7 @@ def processar_vistoria(vistoria_id):
         visto.estado = 'PROCESSANDO'
         visto.erro_publico = ''
         visto.save(update_fields=['estado','erro_publico'])
+    logger.info('Processamento Gemini iniciado para vistoria id=%s', vistoria_id)
     try:
         dados = _consultar_gemini(visto,criterios,referencias)
         propostas = []
@@ -243,8 +251,10 @@ def processar_vistoria(vistoria_id):
             visto.save(update_fields=[
                 'resumo_ia','transcricao_ia','estado','modelo','processado_em'
             ])
+        logger.info('Processamento Gemini concluído para vistoria id=%s', vistoria_id)
         return True
     except Exception:
+        logger.exception('Falha no processamento Gemini da vistoria id=%s', vistoria_id)
         # Não expor detalhes de provedor, caminhos locais ou chaves ao usuário.
         VistoriaInteligente.objects.filter(pk=vistoria_id,estado='PROCESSANDO').update(
             estado='ERRO',erro_publico='Falha na análise. Verifique a configuração e os logs privados.',
