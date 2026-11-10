@@ -45,16 +45,22 @@ class Command(BaseCommand):
             ).order_by('criado_em', 'pk')
             total = encontrados.count()
             self.stdout.write(f'Vistorias em processamento: {total}')
+            agora = timezone.now()
             for visto in encontrados[:50]:
+                minutos_desde_envio = max(
+                    0, int((agora - visto.criado_em).total_seconds() // 60)
+                )
                 self.stdout.write(
-                    f'#{visto.pk}: criado em {visto.criado_em:%Y-%m-%d %H:%M %Z}; '
-                    'início efetivo não registrado'
+                    f'#{visto.pk}: enviado em {visto.criado_em:%Y-%m-%d %H:%M %Z}; '
+                    f'há {minutos_desde_envio} minuto(s) desde o ENVIO; '
+                    'início efetivo do processamento não registrado'
                 )
             if total > 50:
                 self.stdout.write('Listagem limitada aos 50 registros mais antigos.')
             self.stdout.write(
-                'ATENÇÃO: confirme que não existe um processador ativo antes de '
-                'destravar manualmente.'
+                'IMPORTANTE: idade desde o envio NÃO é tempo de processamento. '
+                'Confirme no console e nos logs que não há um worker ativo antes '
+                'de usar --confirmar. Nenhuma recuperação é automática.'
             )
             return
 
