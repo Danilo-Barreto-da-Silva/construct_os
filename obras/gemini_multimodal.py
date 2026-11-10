@@ -148,8 +148,14 @@ def _consultar_gemini(vistoria, lista_criterios, referencias):
         )
         # Interactions API: interface recomendada pelo Google desde 2026.
         # O modelo 2.5 pode constar na listagem, mas retorna 404 para novos projetos.
+        # Interactions API possui timeout por chamada, em SEGUNDOS.
+        # HttpOptions(timeout=...) controla outro caminho do SDK e nao evita
+        # necessariamente o timeout do cliente Speakeasy/_gaos.
+        # Uma chamada que expira pode ter sido processada remotamente: por isso
+        # NAO ha retry automatico de videos e uma nova tentativa exige gestor.
         resposta = client.interactions.create(
             model=modelo_gemini(),
+            timeout=360.0,
             input=[
                 {'type': 'video', 'uri': upload.uri, 'mime_type': upload.mime_type},
                 {'type': 'text', 'text': prompt},
