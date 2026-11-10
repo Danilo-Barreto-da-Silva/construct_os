@@ -99,7 +99,22 @@ class RelatoriosTests(TestCase):
         item.refresh_from_db()
         self.assertEqual(item.descricao, 'Verificar esquadro')
 
-    @override_settings(GEMINI_API_KEY='teste-api-configurada')
+    def test_caminho_ia_legado_recusa_upload_sem_criar_sugestao(self):
+        self.client.force_login(self.staff)
+        payload = SimpleUploadedFile(
+            'exploit.exe', b'fake', content_type='application/octet-stream',
+        )
+        resp = self.client.post(
+            reverse('avaliar_apartamento', args=[self.medicao.pk]),
+            {'acao': 'ia_video', 'video_vistoria': payload}, follow=True,
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'O envio de vídeo foi transferido')
+        self.medicao.refresh_from_db()
+        self.assertEqual(self.medicao.sugestao_ia, '')
+        self.assertEqual(self.medicao.status_iso, 'PENDENTE')
+
+
     def test_arquivo_que_nao_e_video_e_bloqueado(self):
         self.client.force_login(self.staff)
         payload = SimpleUploadedFile(
