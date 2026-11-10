@@ -38,7 +38,7 @@
  <section class="sgo-kpi">
   <p class="sgo-kpi-label">Cobertura de unidades</p>
   <p class="sgo-kpi-value">{{ total_med }} <span class="text-base font-medium text-slate-400">/ {{ total_unidades }}</span></p>
-  <p class="text-xs {% if cobertura_completa %}text-emerald-300{% else %}text-amber-300{% endif %}">{% if cobertura_completa %}Cobertura completa{% else %}Cobertura parcial — não generalizar a média{% endif %}</p>
+  <p class="text-xs {% if cobertura_completa %}text-emerald-300{% else %}text-amber-300{% endif %}">{% if cobertura_completa %}Cobertura completa{% else %}Cobertura incompleta — média parcial, não representa toda a obra{% endif %}</p>
  </section>
  <section class="sgo-kpi">
   <p class="sgo-kpi-label">Ritmo mensal comparável</p>
@@ -60,11 +60,11 @@
   </div>
   {% if meses_grafico %}
    <div id="scurveChart" class="min-h-[285px]" aria-label="Gráfico de médias mensais, amostras podem variar"></div>
-   <div class="flex flex-wrap gap-3 text-xs text-slate-400">{% for amostra in cobertura_grafico %}<span>{{ amostra.mes }}: {{ amostra.quantidade }}/{{ amostra.total }} unidades</span>{% endfor %}</div>
+   <div class="flex flex-wrap gap-3 text-xs text-slate-400">{% for amostra in cobertura_grafico %}<span>{{ amostra.mes }}: {{ amostra.quantidade }} de {{ amostra.total }} unidades</span>{% endfor %}</div>
   {% else %}
    <div class="min-h-[240px] grid place-content-center text-center"><p class="font-semibold">Sem série histórica</p><p class="text-sm sgo-muted mt-2">O gráfico aparecerá após registrar medições.</p></div>
   {% endif %}
-  <p class="text-xs sgo-muted">Cada marcador usa apenas medições registradas. Meses com amostras diferentes não são conectados como se fossem uma curva contínua.</p>
+  <p class="text-xs sgo-muted">Cada marcador usa apenas medições registradas. Os pontos não são ligados, pois meses com amostras diferentes não formam uma curva contínua.</p>
  </section>
  <section class="panel p-5 space-y-4">
   <h2 class="sgo-section-title">Situação da qualidade</h2>
@@ -80,7 +80,7 @@
    </div>
    <p class="text-xs text-slate-400 mt-2">{{ percentual_cobertura }}% das unidades com medição neste filtro</p>
   </div>
-  <p class="text-xs sgo-muted">A situação da FVS é independente do avanço físico. Indicadores da base mensal antiga não devem ser confundidos com análise multimodal.</p>
+  <p class="text-xs sgo-muted">A situação da FVS é independente do avanço físico. Concluídas fisicamente (100%) e com FVS conforme: {{ unidades_iso_ok }} unidade(s). Indicadores da base mensal antiga não devem ser confundidos com análise multimodal.</p>
   <a href="{% url 'lista_rncs' %}" class="btn btn-muted w-full">Consultar qualidade</a>
  </section>
 </div>
