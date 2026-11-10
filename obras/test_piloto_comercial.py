@@ -121,6 +121,71 @@ class PilotoComercialTests(TestCase):
         self.assertContains(resp,'Indisponível')
         self.assertContains(resp,'mesma tipologia')
 
+    def test_dashboard_lateral_mostra_salas_sem_medicao_legada(self):
+        _, unidades = self.criar_lab()
+        self.client.force_login(self.tecnico)
+        response = self.client.get(reverse('painel_principal'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'sgo-sidebar')
+        self.assertContains(response, 'Painel executivo')
+        self.assertContains(response, 'SALA-01')
+        self.assertContains(response, 'SALA-02')
+        self.assertContains(response, 'Sem medições no período')
+        self.assertEqual(len(response.context['unidades_inteligentes']), 2)
+
+    def test_ficha_unidade_exibe_graficos_e_cabeamento_manual(self):
+        _, unidades = self.criar_lab()
+        sala = unidades[0]
+        self.client.force_login(self.tecnico)
+        response = self.client.get(reverse('unidade_inteligente', args=[sala.apartamento_id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Avanço por serviço')
+        self.assertContains(response, 'Ferramentas e registros')
+        self.assertContains(response, 'id="sec-gravar"')
+        self.assertContains(response, 'id="sec-cabeamento"')
+        self.assertContains(response, 'Aguardando informação técnica')
+        self.assertContains(response, 'Indisponível')
+        self.assertIsNone(response.context['progresso']['percentual'])
+        self.assertEqual(response.context['cabeamento'].codigo, 'CAB')
+        self.assertEqual(MedicaoCriterio.objects.count(), 0)
+
+    def test_cabeamento_nao_vai_para_gemini_mas_pode_ser_medido_por_tecnico(self):
+        _, unidades = self.criar_lab()
+        sala = unidades[0]
+        cabo = CriterioVistoria.objects.get(
+            servico__tipologia=sala.tipologia, servico__codigo='ELE', codigo='CAB'
+        )
+        self.assertEqual(cabo.metodo, 'DOCUMENTAL')
+        visto = VistoriaInteligente.objects.create(
+            apartamento=sala.apartamento, enviado_por=self.tecnico,
+            arquivo=SimpleUploadedFile('teste.mp4',
+               b'\x00\x00\x00\x18ftypisom' + b'\x00'*50),
+        )
+        from .gemini_multimodal import preparar_contexto
+        chaves, criterios, refs = preparar_contexto(visto)
+        self.assertNotIn('ELE/CAB', chaves)
+        self.assertNotIn('ELE/CAB', [c['chave'] for c in criterios])
+
+        url = reverse('validar_criterio_view', args=[sala.apartamento_id])
+        dados = {
+            'criterio': str(cabo.pk), 'mes': '2026-11',
+            'percentual': '60', 'observacao': 'Conferência documental do cabeamento.',
+            'vistoria': '',
+        }
+        self.client.force_login(self.operario)
+        self.assertEqual(self.client.post(url, dados).status_code, 403)
+        self.assertFalse(MedicaoCriterio.objects.exists())
+        self.client.force_login(self.tecnico)
+        self.assertEqual(self.client.post(url, dados).status_code, 302)
+        med = MedicaoCriterio.objects.get(
+            apartamento=sala.apartamento, criterio=cabo
+        )
+        self.assertEqual(med.percentual_validado, Decimal('60'))
+        self.assertEqual(med.validado_por, self.tecnico)
+        self.assertIsNone(progresso_unidade(sala,'2026-11')['percentual'])
+        self.medicao_legada.refresh_from_db()
+        self.assertEqual(self.medicao_legada.percentual_concluido, 42)
+
     def test_videos_e_metricas_nao_se_misturam(self):
         tipo,unidades=self.criar_lab()
         primeiro,segundo=unidades
