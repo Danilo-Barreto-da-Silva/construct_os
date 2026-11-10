@@ -143,3 +143,32 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "MODO_SIMULACAO")
 # Gemini 2.5 pode aparecer na listagem mesmo indisponível para contas novas.
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+# Logs operacionais privados. Não registrar senhas, tokens, URL de arquivo remoto
+# nem conteúdo dos vídeos. Em produção, encaminhar stderr a coletor protegido.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'operacional': {
+            'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'operacional',
+        }
+    },
+    'loggers': {
+        'obras': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# A proteção de tentativas de login usa o cache Django. O cache padrão
+# LocMem é adequado somente ao desenvolvimento em um único processo.
+# ANTES DO DEPLOY com múltiplos workers, configurar CACHES['default']
+# com backend compartilhado (Redis/Memcached) e validar o bloqueio.
