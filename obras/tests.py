@@ -102,6 +102,32 @@ class SecurityTests(TestCase):
             META = {'REMOTE_ADDR': '192.0.2.32'}
         self.assertFalse(esta_bloqueado(OutraRequisicao(), 'outro-usuario'))
 
+    def test_admin_login_bloqueia_apos_cinco_falhas(self):
+        from django.core.cache import cache
+        cache.clear()
+        self.addCleanup(cache.clear)
+        get_user_model().objects.create_superuser(
+            'admin-protegido', 'admin@test.invalid', 'senha-correta-admin-teste'
+        )
+        url = reverse('admin:login')
+        for _ in range(5):
+            resp = self.client.post(url, {
+                'username': 'admin-protegido', 'password': 'senha-errada',
+            }, REMOTE_ADDR='192.0.2.71')
+            self.assertEqual(resp.status_code, 200)
+        with self.assertLogs('obras.middleware_seguranca', level='WARNING'):
+            resp = self.client.post(url, {
+                'username': 'admin-protegido', 'password': 'senha-correta-admin-teste',
+            }, REMOTE_ADDR='192.0.2.71')
+        self.assertEqual(resp.status_code, 429)
+        self.assertIn('Muitas tentativas', resp.content.decode('utf-8'))
+        self.assertNotIn('_auth_user_id', self.client.session)
+        # Outro IP não herda o bloqueio dessa origem.
+        liberado = self.client.post(url, {
+            'username': 'admin-protegido', 'password': 'senha-correta-admin-teste',
+        }, REMOTE_ADDR='192.0.2.72')
+        self.assertEqual(liberado.status_code, 302)
+
     @override_settings(DEBUG=True)
     def test_demo_never_deletes_existing_towers(self):
         from .models import Torre
