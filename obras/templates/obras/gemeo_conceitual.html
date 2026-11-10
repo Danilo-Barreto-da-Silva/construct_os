@@ -1,0 +1,300 @@
+{% extends "obras/base_operacional.html" %}
+{% block title %}Prévia 3D conceitual da sala{% endblock %}
+{% block content %}
+<style>
+  .twin-panel{background:linear-gradient(155deg,#13223a,#0b1425);border:1px solid #2d415c;border-radius:16px}
+  .twin-mini{background:#0b1424;border:1px solid #294059;border-radius:12px}
+  .twin-pill{border:1px solid #41546e;background:#122239;color:#d4e8f4;border-radius:9px;padding:9px 13px;font-size:13px;font-weight:700;cursor:pointer}
+  .twin-pill[aria-pressed="true"]{border-color:#22d3ee;background:#0c465c;color:#e5faff}
+  #twin-viewport{position:relative;min-height:400px;height:520px;overflow:hidden;background:radial-gradient(ellipse at 50% 34%,#183c58 0%,#091423 62%,#060d19 100%);border:1px solid #304b65;border-radius:14px}
+  #twin-viewport canvas{display:block;width:100%;height:100%;touch-action:none}
+  #twin-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;pointer-events:none;color:#b8d9e8}
+  #twin-markers{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+  .twin-marker{position:absolute;transform:translate(-50%,-50%);background:#12334cdd;color:#effdff;border:1px solid #57d9ec;border-radius:99px;padding:5px 9px;font-size:11px;font-weight:bold;pointer-events:auto;white-space:nowrap;box-shadow:0 2px 15px #020a13}
+  .twin-marker[aria-pressed="true"]{background:#22d3ee;color:#032231}
+  .twin-list-button{width:100%;display:flex;gap:10px;justify-content:space-between;align-items:center;text-align:left;background:#0b1424;border:1px solid #243d52;border-radius:10px;padding:12px;cursor:pointer}
+  .twin-list-button:hover,.twin-list-button[aria-pressed="true"]{border-color:#22d3ee;background:#143046}
+  .twin-status{font-size:11px;color:#cbd5e1}
+  .twin-legend{position:absolute;top:12px;left:12px;display:flex;gap:5px;flex-wrap:wrap;z-index:3;pointer-events:none}
+  .twin-watermark{position:absolute;bottom:10px;right:12px;color:#cff7ff;background:#091323cc;border:1px solid #4d7080;border-radius:8px;padding:5px 10px;font-size:11px;z-index:2;pointer-events:none}
+  .twin-loader{background:#112a42;padding:20px;border-radius:15px;max-width:330px}
+  @media (max-width:640px){#twin-viewport{height:370px;min-height:370px}.twin-marker{font-size:10px;padding:4px 7px}}
+</style>
+
+<div class="flex flex-wrap justify-between gap-3 items-start">
+ <div>
+  <p class="text-cyan-400 uppercase text-xs tracking-widest font-bold">Laboratório visual · SGO.IA</p>
+  <h1 class="text-3xl font-black mt-1">Gêmeo virtual <span class="text-cyan-300">/ conceito 3D</span></h1>
+  <p class="mt-2 text-slate-400">{{ cfg.apartamento.torre.nome }} · {{ cfg.apartamento.numero }} · Pavimento {{ cfg.apartamento.andar }}</p>
+ </div>
+ <div class="flex flex-wrap gap-2">
+  <a class="btn btn-muted" href="{% url 'unidade_inteligente' cfg.apartamento_id %}">Ficha da unidade</a>
+  <a class="btn btn-muted" href="{% url 'comparar_unidades_tipologia' cfg.tipologia_id %}">Comparar salas</a>
+ </div>
+</div>
+<section class="twin-panel p-4 border-l-4 border-amber-400">
+ <p class="font-bold text-amber-300">Modelo espacial ilustrativo, sem validade de engenharia</p>
+ <p class="text-sm text-slate-300 mt-1">Esta sala 3D foi desenhada para demonstrar o conceito. <strong>Não foi reconstruída dos vídeos nem baseada em dimensões, layout ou quantitativos reais</strong>. Alterar o cenário visual não altera o estágio da obra, os percentuais, FVS ou relatórios. O passo futuro é importar modelo BIM/IFC ou geometria conferida pela equipe técnica.</p>
+</section>
+
+<div class="grid xl:grid-cols-3 gap-4">
+ <section class="xl:col-span-2 twin-panel p-4 space-y-4">
+  <div class="flex flex-wrap justify-between gap-2 items-center">
+   <h2 class="font-bold text-xl">Explorar uma sala comercial</h2>
+   <form method="get" class="flex gap-2 items-center">
+    <label for="mesTwin">Mês</label>
+    <input id="mesTwin" type="month" name="mes" value="{{ mes }}" class="bg-[#091323] border border-slate-600 rounded p-2 text-sm" />
+    <button type="submit" class="btn btn-muted">Ver</button>
+   </form>
+  </div>
+  <div class="flex flex-wrap gap-2" role="group" aria-label="Cenário visual simulado">
+   <button type="button" class="twin-pill" data-cenario="0" aria-pressed="true">1 · Infraestrutura</button>
+   <button type="button" class="twin-pill" data-cenario="1" aria-pressed="false">2 · Revestimentos</button>
+   <button type="button" class="twin-pill" data-cenario="2" aria-pressed="false">3 · Acabamento</button>
+  </div>
+  <div id="twin-viewport" role="region" aria-label="Prévia 3D demonstrativa de uma sala comercial, não representa uma sala real">
+   <div class="twin-legend"><span class="twin-pill" style="cursor:default;border-color:#4b7293;font-size:11px">Arraste para girar · rolagem para zoom</span></div>
+   <div id="twin-fallback"><div class="twin-loader"><p class="font-bold">Preparando visualização 3D…</p><p class="text-xs mt-2">Se não carregar, confira a conexão do navegador. A visualização utiliza a biblioteca Three.js via CDN.</p></div></div>
+   <div id="twin-markers" aria-label="Marcadores de serviços"></div>
+   <div class="twin-watermark">CONCEITO 3D · GEOMETRIA FICTÍCIA</div>
+  </div>
+  <div class="flex flex-wrap gap-2">
+   <button type="button" class="btn btn-muted" id="twinReset">Recentrar câmera</button>
+   <button type="button" class="btn btn-muted" id="twinWire" aria-pressed="false">Exibir estrutura em arame</button>
+  </div>
+  <div class="twin-mini p-4">
+   <p class="text-xs font-bold text-cyan-300 uppercase">Elemento selecionado</p>
+   <h3 id="twin-service-title" class="text-lg font-bold mt-1">Instalação elétrica e infraestrutura</h3>
+   <p id="twin-service-description" class="text-sm text-slate-300 mt-1">Exemplo ilustrativo de eletrodutos, caixas e quadro. A presença na animação não comprova execução real.</p>
+   <p id="twin-service-state" class="text-amber-300 mt-2 text-sm font-semibold">Selecione um serviço à direita para consultar as medições confirmadas.</p>
+  </div>
+ </section>
+
+ <aside class="space-y-4">
+  <section class="twin-panel p-4 space-y-3">
+   <h2 class="font-bold text-xl">Unidade e evidências</h2>
+   <label for="twin-unit">Escolher sala da mesma tipologia</label>
+   <select id="twin-unit" class="w-full p-3 rounded bg-[#081320] border border-slate-600 text-sm">
+    {% for item in outras %}
+    <option value="{% url 'gemeo_conceitual' item.apartamento_id %}" {% if item.apartamento_id == cfg.apartamento_id %}selected{% endif %}>{{ item.apartamento.numero }} · Andar {{ item.apartamento.andar }}</option>
+    {% endfor %}
+   </select>
+   <div class="twin-mini p-3">
+    <p class="text-slate-400 text-xs">Avanço físico ponderado verificado</p>
+    <p class="text-2xl font-black {% if progresso.percentual != None %}text-cyan-300{% else %}text-amber-300{% endif %} mt-1">
+     {% if progresso.percentual != None %}{{ progresso.percentual }}%{% else %}Não determinado{% endif %}
+    </p>
+    <p class="text-xs text-slate-400 mt-1">{{ progresso.n_validados }} de {{ progresso.n_criterios }} critérios medidos. Modelo 3D não altera valores.</p>
+   </div>
+   <div class="twin-mini p-3 space-y-2">
+    <p class="text-xs text-slate-400">Última vistoria multimodal</p>
+    {% if vistoria %}
+     <p class="font-semibold">#{{ vistoria.pk }} · {{ vistoria.get_estado_display }}</p>
+     <p class="text-xs text-slate-400">{{ vistoria.criado_em|date:"d/m/Y H:i" }}</p>
+     <a class="btn btn-primary w-full" href="{% url 'detalhe_vistoria_inteligente' vistoria.pk %}">Abrir vídeo e diagnóstico</a>
+     {% if vistoria.resumo_ia %}
+       <p class="text-xs text-slate-400 uppercase mt-2">Resumo gerado pela IA, não aprovado</p>
+       <p class="text-sm text-slate-200">{{ vistoria.resumo_ia|truncatechars:310 }}</p>
+     {% endif %}
+    {% else %}
+     <p class="text-sm text-slate-300">Nenhuma vistoria registrada para esta sala.</p>
+     <a class="btn btn-muted w-full" href="{% url 'unidade_inteligente' cfg.apartamento_id %}">Abrir captura de vídeo</a>
+    {% endif %}
+   </div>
+  </section>
+  <section class="twin-panel p-4 space-y-3">
+   <h2 class="font-bold text-xl">Serviços da tipologia</h2>
+   <p class="text-xs text-slate-400">Toque num serviço para destacá-lo na maquete. Onde a tipologia não possui elemento representado, mostramos apenas o cadastro. Percentuais exibidos aqui são somente de medições humanas concluídas.</p>
+   <div class="space-y-2" id="twin-service-list">
+    {% for linha in progresso.linhas %}
+    <button type="button" class="twin-list-button" data-svc="{{ linha.servico.codigo }}" data-nome="{{ linha.servico.nome }}" data-progresso="{% if linha.progresso != None %}{{ linha.progresso }}% confirmado{% else %}Sem medição integral validada{% endif %}" aria-pressed="false">
+     <span><span class="text-xs text-cyan-300 font-bold">{{ linha.servico.codigo }}</span><span class="text-sm block font-medium mt-1">{{ linha.servico.nome }}</span></span>
+     <span class="twin-status">{% if linha.progresso != None %}{{ linha.progresso }}%{% else %}Pendente{% endif %}</span>
+    </button>
+    {% endfor %}
+   </div>
+  </section>
+ </aside>
+</div>
+
+<section class="twin-panel p-5 space-y-2">
+ <h2 class="font-bold text-xl">Caminho para um gêmeo digital real</h2>
+ <p class="text-slate-300 text-sm">A geometria atual é demonstrativa. Para uma versão rastreável, a engenharia deverá validar uma tipologia real, fornecer o modelo IFC/BIM ou desenhos com cotas, confirmar revisões e definir coordenadas. A vinculação entre cada evidência de vídeo e o componente real do modelo também precisará ser conferida. O protótipo não faz reconstrução fotogramétrica nem inspeção dimensional.</p>
+</section>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const viewport=document.getElementById('twin-viewport');
+const fallback=document.getElementById('twin-fallback');
+const holder=document.getElementById('twin-markers');
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x0b1828,18,38);
+const camera=new THREE.PerspectiveCamera(43,1,.1,80);
+const home=new THREE.Vector3(10,8.3,10);
+camera.position.copy(home);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.shadowMap.enabled=true;
+renderer.setClearColor(0x000000,0);
+viewport.insertBefore(renderer.domElement,holder);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,1.2,0);
+controls.enableDamping=true;
+controls.dampingFactor=.065;
+controls.minDistance=6;controls.maxDistance=22;
+controls.maxPolarAngle=1.52;
+controls.update();
+scene.add(new THREE.HemisphereLight(0xa8e4ff,0x243649,2.6));
+const light=new THREE.DirectionalLight(0xffffff,3.1);
+light.position.set(2,11,8);light.castShadow=true;
+light.shadow.mapSize.set(1024,1024);scene.add(light);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(28,28),new THREE.MeshStandardMaterial({color:0x0e2338,roughness:1}));
+ground.rotation.x=-Math.PI/2;ground.position.y=-.24;ground.receiveShadow=true;scene.add(ground);
+const grid=new THREE.GridHelper(25,25,0x40647d,0x1a3650);grid.position.y=-.235;scene.add(grid);
+
+let currentStage=0,currentService='ELE',wire=false;
+const components=[];
+const stageColors={ALV:0xd5dee6,CTR:0x77899d,ELE:0x22b8d1,HID:0x5cabea,REB:0xd8cbb2,PISO:0xc7a77e,FOR:0xe1eaf0,PIN:0xf0ede6,ESQ:0x8094aa};
+const descriptions={
+ ALV:'Paredes e vãos esquemáticos. O modelo não comprova posição, prumo nem dimensões.',
+ CTR:'Base e contrapiso representados por superfícies fictícias; níveis e caimentos exigem aferição.',
+ ELE:'Eletrodutos, caixas e quadro indicativos. Caixas visíveis não comprovam passagem de condutores ou ensaios.',
+ HID:'Pontos hidrossanitários não foram desenhados: sua aplicabilidade depende do escopo real da sala.',
+ REB:'Camada de emboço ilustrativa. Vídeo não mede espessura, prumo ou aderência.',
+ PISO:'Cerâmica e rodapés ilustrativos, sem correspondência com o revestimento real.',
+ FOR:'Grelha e painéis de forro esquemáticos. Não representam um sistema dimensionado.',
+ PIN:'Mudança cosmética da superfície da maquete, não demonstra quantidade de demãos ou qualidade.',
+ ESQ:'Porta e divisórias de vidro meramente ilustrativas; modelo não é o quadro de esquadrias do projeto.'
+};
+function box(code,w,h,d,x,y,z,color,from=0,opacity=1){
+ const material=new THREE.MeshStandardMaterial({
+  color,roughness:.78,metalness:.08,transparent:opacity<1,opacity,
+  side:THREE.DoubleSide,depthWrite:opacity===1
+ });
+ const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);
+ mesh.position.set(x,y,z);mesh.castShadow=opacity===1;mesh.receiveShadow=true;
+ scene.add(mesh);components.push({mesh,code,from,material});
+ return mesh;
+}
+function conduit(points){
+ const path=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)),false,'catmullrom',.3);
+ const material=new THREE.MeshStandardMaterial({color:0x40d0e6,metalness:.4,roughness:.5});
+ const mesh=new THREE.Mesh(new THREE.TubeGeometry(path,28,.035,8,false),material);
+ scene.add(mesh);components.push({mesh,code:'ELE',from:0,material});
+}
+// Base e alvenaria
+box('CTR',8.4,.16,6.25,0,-.13,0,0x53687d);
+box('ALV',8,3.15,.16,0,1.55,-3,0xd0dce5,0,.8);
+box('ALV',.16,3.15,6,-4,1.55,0,0xd0dce5,0,.67);
+box('ALV',.16,3.15,6,4,1.55,0,0xd0dce5,0,.22);
+box('ALV',2.4,3,.13,-2.85,1.5,3,0xbccbd8,0,.32);
+box('ALV',2.4,3,.13,2.85,1.5,3,0xbccbd8,0,.28);
+// Eletrodutos e caixas (símbolos visuais, sem projeto)
+for(const [x,y] of [[-2.5,1.15],[.4,1.15],[2,1.55]]){
+ box('ELE',.33,.23,.13,x,y,-2.84,0x1d4056);
+ box('ELE',.20,.12,.07,x,y,-2.755,0x53d5ed);
+ conduit([[x,y,-2.87],[x,y+.65,-2.87],[x,3,-2.87]]);
+}
+box('ELE',.7,.9,.15,-3.1,1.85,-2.83,0x3b5266);
+box('ELE',.54,.72,.04,-3.1,1.85,-2.715,0x92a9bc);
+// Impermeabilização não ilustrada, sem inferir pontos HID
+// Emboço, pintura e revestimentos surgem por etapas visuais
+box('REB',7.9,3.05,.032,0,1.55,-2.905,0xcbbda8,1,.82);
+box('PIN',7.9,3.05,.028,0,1.55,-2.87,0xf3eadb,2,.95);
+// Piso final com paginação fictícia
+box('PISO',7.94,.055,5.92,0,.0,0,0xcbb28b,2);
+for(let x=-3.9;x<=4;x+=.8)box('PISO',.013,.008,5.9,x,.032,0,0x7c746e,2);
+for(let z=-2.9;z<=3;z+=.8)box('PISO',7.92,.008,.013,0,.032,z,0x7c746e,2);
+box('PISO',7.93,.15,.05,0,.13,-2.79,0xf5e8d1,2);
+// Forro leve: duas fases, suspenso e fechado (controle de estágio é fictício)
+for(let x=-3.6;x<4;x+=1.2)box('FOR',.045,.045,5.9,x,2.98,0,0xa5b9c9,1);
+for(let z=-2.8;z<3;z+=1.1)box('FOR',7.9,.045,.045,0,2.98,z,0xa5b9c9,1);
+box('FOR',7.9,.06,5.9,0,3.02,0,0xe0edf4,2,.26);
+// Entradas e porta fictícia
+box('ESQ',.09,2.7,.12,-1.45,1.36,3.04,0x7b90a9,0);
+box('ESQ',.09,2.7,.12,1.45,1.36,3.04,0x7b90a9,0);
+box('ESQ',2.95,.10,.12,0,2.73,3.04,0x7b90a9,0);
+box('ESQ',2.8,2.5,.05,0,1.35,3.03,0x90c7d8,1,.23);
+box('ESQ',.12,.15,.15,.8,1.24,3.15,0xe3edf2,1);
+
+const stages=[...document.querySelectorAll('[data-cenario]')];
+const services=[...document.querySelectorAll('[data-svc]')];
+function refresh(){
+ for(const obj of components){
+  obj.mesh.visible=obj.from<=currentStage;
+  obj.material.wireframe=wire;
+  obj.material.emissive=new THREE.Color(obj.code===currentService?0x196887:0x000000);
+  obj.material.emissiveIntensity=obj.code===currentService?.33:0;
+ }
+ stages.forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.cenario)===currentStage)));
+ services.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.svc===currentService)));
+ for(const x of markerData)x.el.setAttribute('aria-pressed',String(x.code===currentService));
+}
+function choose(code){
+ currentService=code;
+ const b=services.find(e=>e.dataset.svc===code);
+ document.getElementById('twin-service-title').textContent=b?.dataset.nome||code;
+ document.getElementById('twin-service-description').textContent=descriptions[code]||'Serviço cadastrado, sem geometria própria nesta maquete demonstrativa.';
+ document.getElementById('twin-service-state').textContent=b?.dataset.progresso||'Nenhuma medição de serviço encontrada';
+ if(code==='PISO'||code==='PIN')currentStage=2;
+ if(code==='FOR'&&currentStage<1)currentStage=1;
+ refresh();
+}
+stages.forEach(b=>b.addEventListener('click',()=>{currentStage=Number(b.dataset.cenario);refresh()}));
+services.forEach(b=>b.addEventListener('click',()=>choose(b.dataset.svc)));
+document.getElementById('twinReset').addEventListener('click',()=>{
+ camera.position.copy(home);controls.target.set(0,1.2,0);controls.update();
+});
+document.getElementById('twinWire').addEventListener('click',e=>{
+ wire=!wire;e.currentTarget.setAttribute('aria-pressed',String(wire));refresh();
+});
+document.getElementById('twin-unit').addEventListener('change',e=>{
+ // URLs são provenientes de rotas Django autenticadas no próprio aplicativo.
+ window.location.assign(e.target.value);
+});
+const markers=[
+ ['ALV','Alvenaria',[-3.3,2.2,-2.7],0],
+ ['ELE','Elétrica',[-1.8,1.4,-2.45],0],
+ ['CTR','Contrapiso',[1,.25,1.5],0],
+ ['REB','Reboco',[2.8,2,-2.8],1],
+ ['FOR','Forro',[2.1,3.12,.7],1],
+ ['PISO','Piso',[2,.13,1.7],2],
+ ['PIN','Pintura',[-.5,2.35,-2.85],2],
+ ['ESQ','Esquadrias',[1.4,2.1,3],0],
+];
+const markerData=markers.map(([code,label,coordinates,from])=>{
+ const el=document.createElement('button');
+ el.type='button';el.className='twin-marker';el.textContent=label;
+ el.setAttribute('aria-pressed','false');el.addEventListener('click',()=>choose(code));
+ holder.appendChild(el);
+ return {code,from,world:new THREE.Vector3(...coordinates),el};
+});
+function resize(){
+ const width=viewport.clientWidth,height=viewport.clientHeight;
+ if(!width||!height)return;
+ camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height,false);
+}
+if('ResizeObserver' in window)new ResizeObserver(resize).observe(viewport);
+else window.addEventListener('resize',resize);
+resize();fallback.style.display='none';choose('ELE');
+function frame(){
+ if(!renderer.domElement.isConnected)return;
+ requestAnimationFrame(frame);controls.update();
+ renderer.render(scene,camera);
+ const w=viewport.clientWidth,h=viewport.clientHeight;
+ for(const mark of markerData){
+  const p=mark.world.clone().project(camera);
+  mark.el.style.display=(mark.from>currentStage||p.z< -1||p.z>1)?'none':'block';
+  mark.el.style.left=((p.x+1)/2*w)+'px';
+  mark.el.style.top=((-p.y+1)/2*h)+'px';
+ }
+}
+frame();
+</script>
+{% endblock %}
