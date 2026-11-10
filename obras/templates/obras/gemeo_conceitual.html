@@ -230,7 +230,7 @@ function refresh(){
   obj.mesh.visible=obj.from<=currentStage;
   obj.material.wireframe=wire;
   obj.material.emissive=new THREE.Color(obj.code===currentService?0x196887:0x000000);
-  obj.material.emissiveIntensity=obj.code===currentService?.33:0;
+  obj.material.emissiveIntensity=(obj.code===currentService) ? 0.33 : 0;
  }
  stages.forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.cenario)===currentStage)));
  services.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.svc===currentService)));
