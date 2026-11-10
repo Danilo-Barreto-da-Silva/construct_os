@@ -212,7 +212,7 @@ def processar_vistoria(vistoria_id):
                 partes.append('ÁUDIO (declaração): ' + x.declaracao_audio)
             if x.pendencia_verificacao:
                 partes.append('PENDENTE DE VERIFICAÇÃO: ' + x.pendencia_verificacao)
-            explicacao = '\\n'.join(partes)[:1500]
+            explicacao = '\n'.join(partes)[:1500]
             propostas.append(SugestaoEtapaIA(
                 vistoria=visto,criterio=chaves[x.chave],fonte=fonte,
                 percentual_sugerido=Decimal(str(percent)) if percent is not None else None,
