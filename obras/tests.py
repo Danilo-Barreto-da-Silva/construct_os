@@ -244,7 +244,30 @@ class SecurityTests(TestCase):
         self.assertIsNone(medicao.fvs_aprovada_em)
         self.assertEqual(medicao.historico.count(), 2)
 
-    @override_settings(GEMINI_API_KEY="chave-ficticia-teste")
+    def test_upload_legado_nao_processa_video_no_http(self):
+        from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao
+        user = get_user_model().objects.create_user(
+            "vistoriador-legado", password="safe-password-for-test"
+        )
+        self.client.force_login(user)
+        torre = Torre.objects.create(nome="Torre IA legada")
+        apto = Apartamento.objects.create(torre=torre, andar=1, numero="103")
+        medicao = MedicaoMensal.objects.create(
+            apartamento=apto, percentual_concluido=40, status_iso="PENDENTE"
+        )
+        response = self.client.post(
+            reverse("avaliar_apartamento", args=[medicao.pk]),
+            {"acao": "ia_video"},
+            follow=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "O envio de vídeo foi transferido")
+        medicao.refresh_from_db()
+        self.assertEqual(medicao.percentual_concluido, 40)
+        self.assertEqual(medicao.status_iso, "PENDENTE")
+        self.assertFalse(HistoricoMedicao.objects.filter(medicao=medicao).exists())
+
+
     def test_ai_suggestion_does_not_approve_or_change_progress(self):
         from unittest.mock import patch
         from types import SimpleNamespace
