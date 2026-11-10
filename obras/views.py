@@ -191,7 +191,26 @@ def painel_principal(request):
         if torre_fisica and torre_fisica.servicos_fisicos.exists():
             curva_servicos = consolidar_curva(torre_fisica)
 
+    # Unidades com medição inteligente continuam acessíveis mesmo sem
+    # lançamento no painel mensal legado.
+    from .models import UnidadeInteligente
+    unidades_inteligentes = UnidadeInteligente.objects.filter(ativo=True).select_related(
+        'apartamento__torre', 'tipologia'
+    )
+    if torre_selecionada != 'TODAS':
+        unidades_inteligentes = unidades_inteligentes.filter(
+            apartamento__torre_id=int(torre_selecionada)
+        )
+    if andar_selecionado != 'TODOS':
+        unidades_inteligentes = unidades_inteligentes.filter(
+            apartamento__andar=andar_num
+        ) if andar_num is not None else unidades_inteligentes.none()
+
     context = {
+        'unidades_inteligentes': unidades_inteligentes.order_by(
+            'apartamento__torre__nome', 'apartamento__andar', 'apartamento__numero'
+        )[:24],
+        'percentual_cobertura': round(100 * total_med / total_unidades, 1) if total_unidades else 0,
         'curva_servicos': curva_servicos,
         'torres': torres,
         'meses_grafico': meses_grafico,
