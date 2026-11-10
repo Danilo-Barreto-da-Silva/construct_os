@@ -48,6 +48,13 @@ def preparar_contexto(vistoria):
     criterios = list(CriterioVistoria.objects.filter(
         servico__tipologia=cfg.tipologia
     ).select_related('servico','ambiente').order_by('servico__codigo','codigo')[:80])
+    # A passagem de condutores nao pode ser atestada por um video comum.
+    # Mantemos ELE/CAB no catalogo e na medicao do tecnico, mas excluimos
+    # explicitamente das chaves aceitas e dos requisitos enviados ao Gemini.
+    criterios = [
+        c for c in criterios
+        if not (c.servico.codigo == 'ELE' and c.codigo == 'CAB')
+    ]
     if not criterios:
         raise ValidationError('Cadastre critérios nesta tipologia antes de analisar vídeo.')
     chaves = {f'{c.servico.codigo}/{c.codigo}': c for c in criterios}
@@ -117,6 +124,11 @@ def _consultar_gemini(vistoria, lista_criterios, referencias):
             'Você é um assistente de vistoria, não um fiscal nem certificador. '
             'Analise áudio e vídeo separadamente. Identifique em qual critério '
             'há EVIDÊNCIA VISUAL, o que aparece apenas na NARRAÇÃO e o que é INCERTO. '
+            'O cabeamento e a passagem de condutores são parâmetros manuais. '
+            'Não infira presença, ausência, conclusão ou porcentagem de fiação a '
+            'partir de caixas, eletrodutos ou narração; não gere sugestões ELE/CAB. '
+            'Se a narração falar de fios, apenas transcreva essa declaração, '
+            'sem convertê-la em constatação ou medição. '
             'NUNCA apresente fala como comprovação visual. Não avalie conformidade ISO '
             'nem aprovações técnicas. Itens ocultos (tubulação embutida, prumo, ensaio) '
             'não podem ser certificados por vídeo comum. '
