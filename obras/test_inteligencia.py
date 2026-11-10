@@ -354,6 +354,63 @@ class InteligenciaTests(TestCase):
         self.assertEqual(len(refs),1)
         self.assertEqual(refs[0]['folha'],1)
 
+    def test_vistoria_interrompida_exige_confirmacao_e_nao_chama_gemini(self):
+        from io import StringIO
+
+        visto = VistoriaInteligente.objects.create(
+            apartamento=self.apto, arquivo=video_teste(),
+            enviado_por=self.gestor, estado='PROCESSANDO'
+        )
+        relatorio = StringIO()
+        call_command('recuperar_vistoria', '--listar', stdout=relatorio)
+        self.assertIn(f'#{visto.pk}:', relatorio.getvalue())
+        visto.refresh_from_db()
+        self.assertEqual(visto.estado, 'PROCESSANDO')
+
+        with self.assertRaises(CommandError):
+            call_command('recuperar_vistoria', '--vistoria-id', str(visto.pk))
+        visto.refresh_from_db()
+        self.assertEqual(visto.estado, 'PROCESSANDO')
+
+        # O comando apenas troca o estado no banco: nunca envia vídeo.
+        with patch('obras.gemini_multimodal._consultar_gemini') as chamado:
+            saida = StringIO()
+            call_command(
+                'recuperar_vistoria', '--vistoria-id', str(visto.pk),
+                '--confirmar', stdout=saida,
+            )
+            chamado.assert_not_called()
+        visto.refresh_from_db()
+        self.assertEqual(visto.estado, 'ERRO')
+        self.assertIn('interrompido', visto.erro_publico)
+        self.assertIsNotNone(visto.processado_em)
+        self.assertIn('sem reenviar', saida.getvalue())
+        self.assertEqual(visto.sugestoes.count(), 0)
+
+        # Uma segunda tentativa não deve alterar registros já marcados.
+        with self.assertRaises(CommandError):
+            call_command(
+                'recuperar_vistoria', '--vistoria-id', str(visto.pk), '--confirmar'
+            )
+
+        # Só a ação humana da tela recoloca o registro na fila.
+        visto.refresh_from_db()
+        self.assertEqual(visto.estado, 'ERRO')
+
+    def test_recuperar_vistoria_nao_altera_analise_concluida(self):
+        visto = VistoriaInteligente.objects.create(
+            apartamento=self.apto, arquivo=video_teste(),
+            enviado_por=self.gestor, estado='ANALISADA',
+            resumo_ia='Relatório de teste preservado',
+        )
+        with self.assertRaises(CommandError):
+            call_command(
+                'recuperar_vistoria', '--vistoria-id', str(visto.pk), '--confirmar'
+            )
+        visto.refresh_from_db()
+        self.assertEqual(visto.estado, 'ANALISADA')
+        self.assertEqual(visto.resumo_ia, 'Relatório de teste preservado')
+
     def test_reprocessar_exige_staff_e_falha_existente(self):
         visto=VistoriaInteligente.objects.create(
             apartamento=self.apto,arquivo=video_teste(),estado='ERRO'
