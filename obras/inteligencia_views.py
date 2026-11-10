@@ -24,7 +24,7 @@ from .forms_inteligentes import (
 from .models import (
     TipologiaUnidade, AmbienteTipologia, ServicoTipologia, CriterioVistoria,
     UnidadeInteligente, PesoServicoUnidade, DocumentoProjeto, ItemEsperadoProjeto,
-    VistoriaInteligente, SugestaoEtapaIA, EventoMedicaoCriterio, Apartamento,
+    VistoriaInteligente, SugestaoEtapaIA, EventoMedicaoCriterio, MedicaoCriterio, Apartamento,
 )
 from .parametros import progresso_unidade, validar_medicao
 from .modelos_inteligentes import validar_mes_referencia
@@ -167,11 +167,23 @@ def unidade_inteligente(request, apartamento_id):
     lista_vistorias = cfg.apartamento.vistorias_inteligentes.select_related('enviado_por')
     if not request.user.is_staff:
         lista_vistorias = lista_vistorias.filter(enviado_por=request.user)
+    ultimas_vistorias = list(lista_vistorias[:20])
+    # Cabeamento exige confirmação manual/documental. Ele nunca é inferido do vídeo.
+    cabeamento = criterios.filter(servico__codigo='ELE', codigo='CAB').first()
+    cabeamento_ultima = (
+        MedicaoCriterio.objects.filter(
+            apartamento=cfg.apartamento, criterio=cabeamento,
+            mes_referencia__lte=mes
+        ).order_by('-mes_referencia','-pk').first()
+        if cabeamento is not None else None
+    )
     return render(request,'obras/unidade_inteligente.html',{
         'cfg':cfg,'mes':mes,'progresso':progresso,'criterios':criterios,
+        'cabeamento':cabeamento,'cabeamento_ultima':cabeamento_ultima,
+        'ultima_vistoria':ultimas_vistorias[0] if ultimas_vistorias else None,
         'personalizacoes':personalizacoes,'formulario':formulario,
         'formulario_peso':formulario_peso,'pode_editar':request.user.is_staff,
-        'vistorias':lista_vistorias[:20],
+        'vistorias':ultimas_vistorias,
         'video_form':VideoVistoriaForm(),
         'historico_medicoes':EventoMedicaoCriterio.objects.filter(
             medicao__apartamento=cfg.apartamento,
