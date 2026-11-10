@@ -61,6 +61,24 @@ Acesse `/login/`. Crie o administrador com `python manage.py createsuperuser`, s
 6. **Planejamento:** o módulo de metas simples continua disponível, mas é separado da nova **Curva S por serviços**. Cadastre os serviços de uma torre com peso físico total de 100%, depois os valores previstos e executados acumulados em cada mês. O gráfico próprio é ponderado por atividade; ainda **não** é uma Curva S financeira, EVM ou um cronograma contratual.
 7. **Relatórios:** equipe autorizada consulta totais por mês e exporta dados em CSV, inclusive o progresso dos serviços. Os registros de exemplo não devem ser interpretados como dados reais de obra.
 
+## Processamento de vídeo com IA (fluxo único)
+
+Use a página de **Vistorias Inteligentes** (em `/inteligencia/`) para armazenar a gravação, e processe-a separadamente pelo comando `python manage.py processar_vistorias --limite 1`. A análise utiliza o Gemini via Interactions API; a medição, a FVS e o checklist não são aprovados pela IA.
+
+**O antigo upload Gemini dentro do modal de medição foi desativado.** Registros históricos de sugestões permanecem preservados, mas não são produzidos novos dados naquele campo.
+
+Se o Codespaces ou o processo da análise for interrompido, um registro pode permanecer em `PROCESSANDO`. A recuperação é **manual e não reenvia vídeo**:
+
+```bash
+python manage.py recuperar_vistoria --listar
+# Confirme que não existe processar_vistorias em execução:
+ps -ef | grep '[p]rocessar_vistorias'
+# Somente para uma vistoria específica cuja execução anterior terminou:
+python manage.py recuperar_vistoria --vistoria-id ID --confirmar
+```
+
+O último comando muda o status para `ERRO`, sem apagar arquivo, relatório nem modificar medições. Se houver dúvida se a requisição anterior ainda está sendo processada pelo Google, verifique o uso da API antes de pedir nova análise. Uma nova tentativa é uma **decisão explícita** na tela da vistoria, que pode consumir cota ou gerar custo. Nunca execute a recuperação enquanto o processo anterior ainda estiver ativo.
+
 ## Segurança e dados
 
 - `.venv/`, `db.sqlite3`, `.env` e `media/` são ignorados pelo Git. Os arquivos já versionados foram retirados do estado atual por commit sem apagar as cópias do Codespaces. Isso **não elimina conteúdo de commits antigos**.
