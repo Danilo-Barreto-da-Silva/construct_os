@@ -121,6 +121,74 @@ class SecurityTests(TestCase):
         self.assertEqual(medicao.status_iso, "PENDENTE")
         self.assertEqual(HistoricoMedicao.objects.count(), 0)
 
+    def test_fvs_sem_checklist_nao_pode_ser_aprovada(self):
+        from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao
+        tecnico = get_user_model().objects.create_user(
+            "tecnico_fvs_vazia", password="safe-password-for-test", is_staff=True
+        )
+        torre = Torre.objects.create(nome="Obra checklist vazio")
+        apto = Apartamento.objects.create(torre=torre, andar=1, numero="001")
+        medicao = MedicaoMensal.objects.create(
+            apartamento=apto, percentual_concluido=35, status_iso="PENDENTE"
+        )
+        self.client.force_login(tecnico)
+        response = self.client.post(reverse("avaliar_apartamento", args=[medicao.pk]), {
+            "acao": "manual", "percentual": "100", "status_iso": "CONFORME",
+            "etapa_atual": "Finalizado",
+        }, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Cadastre e verifique pelo menos um item")
+        medicao.refresh_from_db()
+        self.assertEqual(medicao.percentual_concluido, 35)
+        self.assertEqual(medicao.status_iso, "PENDENTE")
+        self.assertIsNone(medicao.fvs_aprovada_por)
+        self.assertFalse(HistoricoMedicao.objects.filter(medicao=medicao).exists())
+
+    def test_usuario_comum_nao_pode_rebaixar_ou_editar_fvs_aprovada(self):
+        from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao, ItemFVS
+        gestor = get_user_model().objects.create_user(
+            "gestor_fvs_trava", password="safe-password-for-test", is_staff=True
+        )
+        auxiliar = get_user_model().objects.create_user(
+            "auxiliar_fvs_trava", password="safe-password-for-test"
+        )
+        torre = Torre.objects.create(nome="Obra FVS bloqueada")
+        apto = Apartamento.objects.create(torre=torre, andar=1, numero="002")
+        medicao = MedicaoMensal.objects.create(
+            apartamento=apto, percentual_concluido=100, status_iso="PENDENTE"
+        )
+        ItemFVS.objects.create(
+            medicao=medicao, descricao="Inspeção final", resultado="CONFORME",
+            verificado_por=gestor,
+        )
+        url = reverse("avaliar_apartamento", args=[medicao.pk])
+        self.client.force_login(gestor)
+        self.assertEqual(self.client.post(url, {
+            "acao": "manual", "percentual": "100", "status_iso": "CONFORME",
+            "etapa_atual": "Finalizado", "laudo_ia": "Conferido pela engenharia",
+        }).status_code, 302)
+        medicao.refresh_from_db()
+        self.assertEqual(medicao.status_iso, "CONFORME")
+        autor_aprovacao = medicao.fvs_aprovada_por
+        horario_aprovacao = medicao.fvs_aprovada_em
+        historico_inicial = HistoricoMedicao.objects.filter(medicao=medicao).count()
+        self.client.force_login(auxiliar)
+        for status in ("PENDENTE", "NAO_CONFORME", "CONFORME"):
+            response = self.client.post(url, {
+                "acao": "manual", "percentual": "25", "status_iso": status,
+                "etapa_atual": "Alteração não autorizada",
+                "laudo_ia": "Texto modificado",
+            })
+            self.assertEqual(response.status_code, 403)
+            medicao.refresh_from_db()
+            self.assertEqual(medicao.status_iso, "CONFORME")
+            self.assertEqual(medicao.percentual_concluido, 100)
+            self.assertEqual(medicao.fvs_aprovada_por, autor_aprovacao)
+            self.assertEqual(medicao.fvs_aprovada_em, horario_aprovacao)
+            self.assertEqual(
+                HistoricoMedicao.objects.filter(medicao=medicao).count(), historico_inicial
+            )
+
     def test_staff_approval_records_author_and_previous_values(self):
         from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao
         user = get_user_model().objects.create_user("engenheira", password="safe-password-for-test", is_staff=True)
@@ -128,6 +196,11 @@ class SecurityTests(TestCase):
         torre = Torre.objects.create(nome="Torre de auditoria")
         apto = Apartamento.objects.create(torre=torre, andar=2, numero="201")
         medicao = MedicaoMensal.objects.create(apartamento=apto, percentual_concluido=60, status_iso="PENDENTE")
+        from .models import ItemFVS
+        ItemFVS.objects.create(
+            medicao=medicao, descricao="Revisão do acabamento", resultado="CONFORME",
+            verificado_por=user,
+        )
         response = self.client.post(reverse("avaliar_apartamento", args=[medicao.pk]), {
             "acao": "manual", "percentual": "100", "status_iso": "CONFORME",
             "etapa_atual": "Pintura concluída", "laudo_ia": "FVS inspecionada",
@@ -156,6 +229,11 @@ class SecurityTests(TestCase):
         torre = Torre.objects.create(nome="Torre")
         apto = Apartamento.objects.create(torre=torre, andar=1, numero="102")
         medicao = MedicaoMensal.objects.create(apartamento=apto)
+        from .models import ItemFVS
+        ItemFVS.objects.create(
+            medicao=medicao, descricao="Inspeção concluída", resultado="CONFORME",
+            verificado_por=user,
+        )
         url = reverse("avaliar_apartamento", args=[medicao.pk])
         self.client.post(url, {"acao": "manual", "percentual": "100", "status_iso": "CONFORME", "etapa_atual": "Fim"})
         medicao.refresh_from_db()
