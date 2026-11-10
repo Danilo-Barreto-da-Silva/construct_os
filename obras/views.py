@@ -1,8 +1,10 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -10,7 +12,11 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from .models import Torre, Apartamento, MedicaoMensal, HistoricoMedicao, NaoConformidade, PlanejamentoMensal
 from .curva_s import consolidar_curva
+from .seguranca_login import esta_bloqueado, registrar_falha, registrar_sucesso
 
+logger = logging.getLogger(__name__)
+
+@never_cache
 def login_sistema(request):
     if request.user.is_authenticated:
         return redirect('painel_principal')
@@ -19,15 +25,25 @@ def login_sistema(request):
     if request.method == 'POST':
         usuario = request.POST.get('username', '').strip()
         senha = request.POST.get('password', '')
+        if esta_bloqueado(request, usuario):
+            # Mensagem genérica: não revela se a conta existe.
+            logger.warning('Login bloqueado temporariamente por falhas repetidas.')
+            resposta = render(request, 'obras/login.html', {
+                'erro': 'Muitas tentativas de acesso. Aguarde até 15 minutos e tente novamente.',
+                'next': request.POST.get('next', ''),
+            }, status=429)
+            resposta['Retry-After'] = '900'
+            return resposta
         user = authenticate(request, username=usuario, password=senha)
         if user is not None:
+            registrar_sucesso(request, usuario)
             login(request, user)
             destino = request.POST.get('next', '')
             if not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
                 destino = '/'
             return redirect(destino)
-        else:
-            erro = "Acesso negado: usuário ou senha incorretos."
+        registrar_falha(request, usuario)
+        erro = 'Acesso negado: usuário ou senha incorretos.'
 
     return render(request, 'obras/login.html', {'erro': erro, 'next': request.GET.get('next', '')})
 
