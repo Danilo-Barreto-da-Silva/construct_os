@@ -303,6 +303,7 @@ class InteligenciaTests(TestCase):
         self.assertIn('paredes', resposta.resumo)
         parametros = sdk.interactions.create.call_args.kwargs
         self.assertEqual(parametros['model'], 'gemini-3.8-flash')
+        self.assertEqual(parametros['timeout'], 360.0)
         self.assertEqual(parametros['input'][0]['type'], 'video')
         self.assertEqual(parametros['input'][0]['uri'], arquivo_remoto.uri)
         self.assertEqual(parametros['input'][1]['type'], 'text')
