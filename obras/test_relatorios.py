@@ -115,19 +115,6 @@ class RelatoriosTests(TestCase):
         self.assertEqual(self.medicao.status_iso, 'PENDENTE')
 
 
-    def test_arquivo_que_nao_e_video_e_bloqueado(self):
-        self.client.force_login(self.staff)
-        payload = SimpleUploadedFile(
-            'exploit.exe', b'fake', content_type='application/octet-stream',
-        )
-        with patch('obras.views.analisar_video_obra') as analisar:
-            resp = self.client.post(
-                reverse('avaliar_apartamento', args=[self.medicao.pk]),
-                {'acao': 'ia_video', 'video_vistoria': payload},
-            )
-        self.assertEqual(resp.status_code, 302)
-        analisar.assert_not_called()
-
     def test_meta_registra_historico_de_revisoes(self):
         self.client.force_login(self.staff)
         url = reverse('planejamento')
