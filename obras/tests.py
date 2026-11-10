@@ -39,8 +39,6 @@ class SecurityTests(TestCase):
         })
         self.assertRedirects(response, "/", fetch_redirect_response=False)
 
-    @override_settings(DEBUG=True)
-
     def test_login_bloqueia_apos_cinco_senhas_erradas_sem_revelar_conta(self):
         from django.core.cache import cache
         cache.clear()
@@ -85,6 +83,7 @@ class SecurityTests(TestCase):
         registrar_falha(req, 'Nome.Usuario')
         self.assertFalse(esta_bloqueado(req, 'Nome.Usuario'))
 
+    @override_settings(DEBUG=True)
     def test_demo_never_deletes_existing_towers(self):
         from .models import Torre
         user = get_user_model().objects.create_superuser("owner2", "owner2@example.com", "safe-password-for-test")
