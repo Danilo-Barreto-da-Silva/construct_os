@@ -154,6 +154,10 @@ class OperacoesTests(TestCase):
 
     def test_modificar_checklist_reabre_fvs(self):
         self.client.force_login(self.tecnico)
+        ItemFVS.objects.create(
+            medicao=self.medicao, descricao='Inspeção inicial',
+            resultado='CONFORME', verificado_por=self.tecnico,
+        )
         self.client.post(reverse('avaliar_apartamento', args=[self.medicao.pk]), {
             'acao': 'manual', 'percentual': '100', 'status_iso': 'CONFORME',
             'etapa_atual': 'Finalizado',
