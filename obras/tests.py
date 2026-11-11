@@ -5,6 +5,29 @@ from django.urls import reverse
 
 
 class SecurityTests(TestCase):
+    def test_modal_medicao_nao_injeta_eventos_ou_codigo_javascript(self):
+        from .models import Apartamento, MedicaoMensal, Torre
+        user = get_user_model().objects.create_user(
+            'painel-sem-inline', password='senha-de-teste-segura'
+        )
+        torre = Torre.objects.create(
+            nome='Torre " onmouseover="alert(1)'
+        )
+        apto = Apartamento.objects.create(
+            torre=torre, numero='101', andar=1
+        )
+        MedicaoMensal.objects.create(
+            apartamento=apto, mes_referencia='2026-11',
+            percentual_concluido=10,
+        )
+        self.client.force_login(user)
+        resposta = self.client.get(reverse('painel_principal'), {'mes':'2026-11'})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, 'data-abrir-medicao')
+        self.assertNotContains(resposta, 'onclick=')
+        self.assertNotContains(resposta, 'onsubmit=')
+        self.assertContains(resposta, 'Torre &quot; onmouseover=&quot;alert(1)')
+
     def test_login_does_not_create_default_admin(self):
         self.client.get(reverse("login_sistema"))
         self.assertFalse(get_user_model().objects.filter(username="adm").exists())
