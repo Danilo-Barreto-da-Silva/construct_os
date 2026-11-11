@@ -1,4 +1,5 @@
 {% extends "obras/base_operacional.html" %}
+{% load static %}
 {% block title %}Prévia 3D conceitual da sala{% endblock %}
 {% block content %}
 <style>
@@ -123,7 +124,7 @@
 </section>
 
 <script type="importmap">
-{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+{"imports":{"three":"{% static 'obras/vendor/three/build/three.module.js' %}","three/addons/":"{% static 'obras/vendor/three/examples/jsm/' %}"}}
 </script>
 <script type="module">
 import * as THREE from 'three';
