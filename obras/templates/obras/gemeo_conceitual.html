@@ -124,7 +124,7 @@
 </section>
 
 <script type="importmap">
-{"imports":{"three":"{% static 'obras/vendor/three/build/three.module.js' %}","three/addons/":"{% static 'obras/vendor/three/examples/jsm/' %}"}}
+{"imports":{"three":"{% static 'obras/vendor/three/build/three.module.js' %}","three/addons/":"{% get_static_prefix %}obras/vendor/three/examples/jsm/"}}
 </script>
 <script type="module">
 import * as THREE from 'three';
