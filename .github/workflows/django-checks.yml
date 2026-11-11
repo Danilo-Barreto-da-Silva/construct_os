@@ -14,25 +14,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build static assets and prepare lockfile
+      - name: Compile pinned static assets
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npm run build:assets
           test -s obras/static/obras/css/tailwind.min.css
           test -s obras/static/obras/vendor/apexcharts/apexcharts.min.js
           test -s obras/static/obras/vendor/three/build/three.module.js
-          echo 'SGO_PACKAGE_LOCK_START'
-          base64 -w 2000 package-lock.json
-          echo 'SGO_PACKAGE_LOCK_END'
+          test -s obras/static/obras/vendor/fontawesome/css/all.min.css
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Django checks and tests
         env:
-          DJANGO_SECRET_KEY: ci-only-not-for-production
+          DJANGO_SECRET_KEY: ci-only-testing-m4w8rQ3s6aD2eF9gH7jK5mN1pR8tU4vW6xY0zA2bC9dE3fG7hI5
           DJANGO_DEBUG: '0'
           DJANGO_ALLOWED_HOSTS: localhost,testserver
+          DJANGO_SECURE_SSL_REDIRECT: '0'
           GEMINI_API_KEY: MODO_SIMULACAO
         run: |
+          python manage.py collectstatic --noinput --clear --verbosity 0
           python manage.py check
           python manage.py makemigrations --check --dry-run
           python manage.py test
+          DJANGO_SECURE_SSL_REDIRECT=1 python manage.py check --deploy --fail-level WARNING
