@@ -11,6 +11,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build static assets and prepare lockfile
+        run: |
+          npm install --no-audit --no-fund
+          npm run build:assets
+          test -s obras/static/obras/css/tailwind.min.css
+          test -s obras/static/obras/vendor/apexcharts/apexcharts.min.js
+          test -s obras/static/obras/vendor/three/build/three.module.js
+          echo 'SGO_PACKAGE_LOCK_START'
+          base64 -w 2000 package-lock.json
+          echo 'SGO_PACKAGE_LOCK_END'
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Django checks and tests
