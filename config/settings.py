@@ -50,6 +50,11 @@ SECURE_HSTS_PRELOAD = False
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
 
+# Só habilitar quando houver proxy reverso CONFIÁVEL que remova cabeçalhos
+# de clientes e regrave X-Forwarded-Proto corretamente.
+if not DEBUG and os.environ.get('DJANGO_TRUST_PROXY_HTTPS', '0') == '1':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
 
 
@@ -158,11 +163,29 @@ if not DEBUG:
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# Em desenvolvimento, imprimir e-mails somente no console.
+# Fora do DEBUG, exigir um servidor SMTP explícito e não usar backends fake.
+if DEBUG:
+    MAILERS = {
+        'default': {'BACKEND': 'django.core.mail.backends.console.EmailBackend'},
+    }
+else:
+    smtp_host = os.environ.get('DJANGO_SMTP_HOST', '').strip()
+    if not smtp_host:
+        raise RuntimeError('Defina DJANGO_SMTP_HOST para a configuração de produção.')
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'OPTIONS': {
+                'host': smtp_host,
+                'port': int(os.environ.get('DJANGO_SMTP_PORT', '587')),
+                'username': os.environ.get('DJANGO_SMTP_USER', ''),
+                'password': os.environ.get('DJANGO_SMTP_PASSWORD', ''),
+                'use_tls': os.environ.get('DJANGO_SMTP_TLS', '1') == '1',
+                'timeout': 10,
+            },
+        },
+    }
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
