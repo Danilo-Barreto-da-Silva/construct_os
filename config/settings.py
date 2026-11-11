@@ -31,7 +31,24 @@ if not SECRET_KEY:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
 
+# A instância pública exige hostname e segredo próprios.
+if not DEBUG and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith('django-insecure-')):
+    raise RuntimeError('Defina DJANGO_SECRET_KEY forte e exclusiva (mínimo 50 caracteres).')
+if not DEBUG and not os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip():
+    raise RuntimeError('Defina DJANGO_ALLOWED_HOSTS explicitamente fora do desenvolvimento.')
+
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
+
+# Defaults seguros quando DEBUG=0. CI com cliente HTTP desativa apenas
+# redirecionamento SSL na etapa de testes (nunca na verificação de deploy).
+SECURE_SSL_REDIRECT = not DEBUG and os.environ.get('DJANGO_SECURE_SSL_REDIRECT', '1') == '1'
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '3600' if not DEBUG else '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
 
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
 
@@ -124,8 +141,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Fail closed para arquivos estáticos ausentes em ambiente de implantação.
+# Requer `npm ci && npm run build:assets && python manage.py collectstatic`.
+if not DEBUG:
+    STORAGES = {
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage',
+        },
+    }
 
 
 # Email
