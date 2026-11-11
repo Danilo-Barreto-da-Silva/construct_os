@@ -1,4 +1,5 @@
 {% extends 'obras/base_operacional.html' %}
+{% load static %}
 {% block title %}Curva S ponderada por serviços{% endblock %}
 {% block content %}
 <div class="flex flex-wrap gap-4 justify-between items-start">
@@ -102,7 +103,7 @@
   {{ curva.meses|json_script:"curva-meses" }}
   {{ curva.previstos|json_script:"curva-previstos" }}
   {{ curva.realizados|json_script:"curva-realizados" }}
-  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="{% static 'obras/vendor/apexcharts/apexcharts.min.js' %}"></script>
   <script>
   if (typeof ApexCharts !== 'undefined') {
       const meses = JSON.parse(document.getElementById('curva-meses').textContent);
