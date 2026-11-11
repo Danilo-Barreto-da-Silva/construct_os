@@ -87,6 +87,29 @@ O último comando muda o status para `ERRO`, sem apagar arquivo, relatório nem 
 - **Credenciais históricas:** a primeira versão pública do projeto continha uma conta de demonstração e uma chave Django no histórico do Git. Considere ambas comprometidas permanentemente. Antes de compartilhar qualquer instalação, revisar a lista de usuários no painel administrativo, desativar a conta de demonstração caso exista, alterar senhas reutilizadas e substituir a `DJANGO_SECRET_KEY` por um segredo único armazenado nas configurações seguras do Codespaces/servidor. Trocar a chave invalida sessões existentes. Não colar segredos no chat, no README ou em commits.
 - **Ambiente:** mantenha a porta `8000` **Private**. `DJANGO_DEBUG=1` é apenas para desenvolvimento no Codespaces; não publicar uma instância com esse valor. A limpeza do histórico Git e o merge na `main` ficam para uma operação separada, planejada e com cópias de segurança.
 
+## Etapa 3 — assets locais e configuração para futura implantação
+
+**Desenvolvimento no Codespaces:** os templates deixaram de carregar Tailwind, ApexCharts, Font Awesome e Three.js via CDN. Os arquivos não são baixados nem enviados pelo Gemini; são produzidos localmente a partir das dependências travadas em `package-lock.json`. **Depois de cada atualização dessas dependências**, compile os assets antes de abrir o sistema:
+
+```bash
+cd /workspaces/construct_os
+npm ci
+npm run build:assets
+source .venv/bin/activate
+python manage.py check
+python manage.py test
+```
+
+Use o servidor Django normalmente com `DJANGO_DEBUG=1`, mantendo a porta `8000` privada. Se abrir o sistema sem compilar os assets após esta atualização, o layout, os gráficos e a visualização 3D poderão não carregar. Não execute `migrate` por causa desses arquivos.
+
+**Pipeline:** GitHub Actions usa Node 22, `npm ci`, compilação de CSS e bibliotecas locais, `collectstatic`, testes Django e `check --deploy`. A geração não altera medições ou dados da obra. O build usa Tailwind 3.4.19, ApexCharts 3.54.1, Font Awesome 6.4.0 e Three.js 0.170.0. Antes de oferecer o produto comercialmente, verificar as condições de licença das bibliotecas, especialmente ApexCharts.
+
+**Implantação futura (não executada):** configurar em um gerenciador seguro de segredos `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY` exclusiva de pelo menos 50 caracteres, `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_SMTP_HOST` e as opções `DJANGO_SMTP_USER`, `DJANGO_SMTP_PASSWORD` e `DJANGO_SMTP_PORT` conforme o fornecedor. O backend SMTP usa TLS por padrão. Compilar com `npm ci && npm run build:assets`, executar `python manage.py collectstatic --noinput` e configurar o servidor HTTPS/proxy para servir `STATIC_ROOT`. O projeto usa armazenamento estático com manifesto quando `DEBUG=0`; sem `collectstatic`, faltam arquivos.
+
+**HTTPS:** redirecionamento SSL, cookies seguros e HSTS inicial de 1 hora são ativados fora de `DEBUG`. `DJANGO_TRUST_PROXY_HTTPS=1` só é permitido atrás de proxy confiável que substitui o cabeçalho `X-Forwarded-Proto`; nunca confiar nesse cabeçalho enviado diretamente pelo cliente. As opções HSTS `includeSubDomains` e `preload` permanecem desligadas até todos os subdomínios serem auditados — por isso `check --deploy` ainda avisa sobre W005/W021. Ativá-las sem validação é perigoso. O pipeline verifica que não há **erros** de segurança, mas não afirma que a implantação esteja pronta.
+
+**Bloqueios para produção:** ainda é necessário migrar o SQLite para um banco adequado a múltiplos usuários, usar cache compartilhado no bloqueio de login, auditar segredos antigos no histórico Git, ajustar backup/restauração, revisar privacidade dos vídeos e configurar hospedagem real. A branch `main` não foi alterada nesta etapa.
+
 ## Segurança e dados
 
 - `.venv/`, `db.sqlite3`, `.env` e `media/` são ignorados pelo Git. Os arquivos já versionados foram retirados do estado atual por commit sem apagar as cópias do Codespaces. Isso **não elimina conteúdo de commits antigos**.
@@ -95,7 +118,7 @@ O último comando muda o status para `ERRO`, sem apagar arquivo, relatório nem 
 - O projeto inicialmente publicou credenciais de demonstração, uma SECRET_KEY e o SQLite no histórico Git. Troque qualquer senha reutilizada e credencial real; um planejamento específico de limpeza do histórico será necessário antes de qualquer exposição pública.
 - O controle `is_staff` não faz isolamento por empresa/obra e não substitui papéis granulares. A trilha de auditoria registra ações após sua implantação, não o passado, e não é imutável contra administradores com acesso ao banco.
 - Os uploads e o uso da IA ainda exigem avaliação de privacidade, consentimento e retenção antes de vídeos reais de clientes. Evite gravar pessoas sem autorização.
-- Os templates ainda dependem de bibliotecas por CDN em desenvolvimento; o empacotamento local, cabeçalhos de segurança e revisão de infraestrutura ficam para implantação.
+- Os assets CSS/JS principais são compilados e servidos localmente após `npm ci && npm run build:assets`; a hospedagem estática pública, política de cabeçalhos e revisão de infraestrutura permanecem tarefas de implantação.
 - Backups automatizados, isolamento multiobra, credenciamento profissional, evidências fotográficas e assinatura digital formal são etapas futuras.
 
 ## Testes e referências
