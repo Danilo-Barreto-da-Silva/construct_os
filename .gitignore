@@ -13,3 +13,7 @@ staticfiles/
 .coverage
 .idea/
 .vscode/
+
+# Artefatos reconstruídos pelo compilador CSS local
+node_modules/
+obras/static/obras/css/tailwind.min.css
