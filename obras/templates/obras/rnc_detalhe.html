@@ -1,0 +1,59 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}RNC #{{ rnc.pk }}{% endblock %}
+{% block content %}
+<div class="flex flex-wrap justify-between items-end gap-3">
+  <div>
+    <a class="text-cyan-300 text-sm hover:underline" href="{% url 'lista_rncs' %}">← Registro de RNCs</a>
+    <p class="text-xs text-cyan-400 tracking-widest mt-4 uppercase">RNC #{{ rnc.pk }} · {{ rnc.get_prioridade_display }}</p>
+    <h1 class="text-3xl font-black mt-1">{{ rnc.titulo }}</h1>
+    <p class="text-sm text-slate-400 mt-2">{{ rnc.medicao.apartamento.torre.nome }} · Apto {{ rnc.medicao.apartamento.numero }} · {{ rnc.medicao.mes_referencia }}</p>
+  </div>
+  <a href="{% url 'checklist_fvs' rnc.medicao.pk %}" class="btn btn-muted">Abrir checklist FVS</a>
+</div>
+<div class="grid lg:grid-cols-3 gap-5">
+  <section class="lg:col-span-2 panel p-5 space-y-4">
+    <div class="flex flex-wrap justify-between gap-3 items-center">
+      <h2 class="text-lg font-bold">Descrição e tratamento</h2>
+      <span class="text-sm font-bold {% if rnc.situacao == 'RESOLVIDA' %}text-emerald-400{% elif rnc.situacao == 'ABERTA' %}text-rose-400{% else %}text-amber-400{% endif %}">{{ rnc.get_situacao_display }}</span>
+    </div>
+    <div class="bg-[#090e17] p-4 rounded-lg whitespace-pre-line break-words text-sm">{{ rnc.descricao }}</div>
+    <h3 class="font-semibold">Ação corretiva</h3>
+    <p class="bg-[#090e17] rounded-lg p-4 text-sm whitespace-pre-line break-words">{% if rnc.acao_corretiva %}{{ rnc.acao_corretiva }}{% else %}<span class="text-slate-400">Aguardando definição da ação</span>{% endif %}</p>
+    {% if pode_tratar %}
+    <hr class="border-slate-800">
+    <h3 class="font-bold">Atualizar tratamento</h3>
+    <p class="text-xs text-slate-400">Encerrar exige ação corretiva preenchida. A FVS não será aprovada automaticamente.</p>
+    <form method="post" action="{% url 'tratar_rnc' rnc.pk %}">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Salvar atualização</button>
+    </form>
+    {% else %}
+    <p class="text-xs text-amber-300">Apenas membros autorizados podem atribuir, atualizar ou encerrar esta RNC.</p>
+    {% endif %}
+  </section>
+  <aside class="space-y-5">
+    <section class="panel p-5 space-y-3 text-sm">
+      <h2 class="font-bold text-lg">Responsáveis e prazos</h2>
+      <p><span class="text-slate-400">Aberta por:</span> {% if rnc.aberta_por %}{{ rnc.aberta_por.get_username }}{% else %}Usuário excluído{% endif %}</p>
+      <p><span class="text-slate-400">Data de abertura:</span> {{ rnc.aberta_em|date:"d/m/Y H:i" }}</p>
+      <p><span class="text-slate-400">Responsável:</span> {% if rnc.responsavel %}{{ rnc.responsavel.get_username }}{% else %}Não atribuído{% endif %}</p>
+      <p><span class="text-slate-400">Prazo:</span> {% if rnc.prazo %}{{ rnc.prazo|date:"d/m/Y" }}{% if rnc.em_atraso %}<strong class="text-rose-400"> — Vencido</strong>{% endif %}{% else %}Não definido{% endif %}</p>
+      {% if rnc.encerrada_em %}
+      <p><span class="text-slate-400">Encerrada em:</span> {{ rnc.encerrada_em|date:"d/m/Y H:i" }}</p>
+      <p><span class="text-slate-400">Encerrada por:</span> {% if rnc.encerrada_por %}{{ rnc.encerrada_por.get_username }}{% else %}Usuário excluído{% endif %}</p>
+      {% endif %}
+    </section>
+    <section class="panel p-5 space-y-3">
+      <h2 class="font-bold">Histórico de movimentações</h2>
+      {% for evento in eventos %}
+      <article class="border-l-2 border-cyan-500 pl-3 py-1 text-sm">
+        <p class="font-semibold">{{ evento.situacao_anterior|default:"Abertura" }} → {{ evento.situacao_nova }}</p>
+        <p class="text-xs text-slate-400 mt-1">{{ evento.criado_em|date:"d/m/Y H:i" }} · {% if evento.autor %}{{ evento.autor.get_username }}{% else %}Usuário excluído{% endif %}</p>
+        <p class="text-slate-300 mt-2 whitespace-pre-line break-words">{{ evento.descricao }}</p>
+      </article>
+      {% empty %}<p class="text-slate-400 text-sm">Nenhuma movimentação registrada.</p>{% endfor %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

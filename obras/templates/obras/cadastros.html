@@ -1,0 +1,63 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}Cadastros da obra{% endblock %}
+{% block content %}
+<div>
+  <p class="text-xs uppercase tracking-widest text-cyan-400 font-semibold">Configuração da obra</p>
+  <h1 class="text-3xl font-black mt-1">Torres, unidades e medições</h1>
+  <p class="text-slate-400 text-sm mt-2">Cadastre dados reais de forma progressiva, sem substituir as medições existentes. Disponível somente para equipe autorizada.</p>
+</div>
+<div class="grid lg:grid-cols-3 gap-5">
+  <section class="panel p-5">
+    <p class="text-xs uppercase text-cyan-400 font-bold mb-1">Etapa 1</p>
+    <h2 class="text-xl font-bold mb-3">Cadastrar torre</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="torre">
+      {{ torre_form.as_p }}
+      <button type="submit" class="btn btn-primary">Criar torre</button>
+    </form>
+  </section>
+  <section class="panel p-5">
+    <p class="text-xs uppercase text-cyan-400 font-bold mb-1">Etapa 2</p>
+    <h2 class="text-xl font-bold mb-3">Cadastrar apartamento</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="apartamento">
+      {{ apartamento_form.as_p }}
+      <button type="submit" class="btn btn-primary">Criar apartamento</button>
+    </form>
+  </section>
+  <section class="panel p-5">
+    <p class="text-xs uppercase text-cyan-400 font-bold mb-1">Etapa 3</p>
+    <h2 class="text-xl font-bold mb-3">Iniciar medição mensal</h2>
+    <p class="text-xs text-slate-400 mb-3">A medição inicia com a FVS pendente. A obra não é aprovada automaticamente.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="acao" value="medicao">
+      {{ medicao_form.as_p }}
+      <button type="submit" class="btn btn-primary">Salvar medição</button>
+    </form>
+  </section>
+</div>
+<div class="grid lg:grid-cols-2 gap-5">
+  <section class="panel p-5">
+    <h2 class="text-lg font-bold mb-3">Torres cadastradas</h2>
+    {% for torre in torres %}
+    <div class="border-b border-slate-800 py-2 flex justify-between gap-3 text-sm">
+      <strong>{{ torre.nome }}</strong>
+      <span class="text-slate-400">{{ torre.total_andares }} pavimentos</span>
+    </div>
+    {% empty %}<p class="text-slate-400 text-sm">Nenhuma torre cadastrada.</p>{% endfor %}
+  </section>
+  <section class="panel p-5">
+    <h2 class="text-lg font-bold mb-3">Últimas medições cadastradas</h2>
+    {% for medicao in medicoes %}
+    <div class="border-b border-slate-800 py-2 flex justify-between items-center gap-3 text-sm">
+      <div>{{ medicao.apartamento.torre.nome }} · {{ medicao.apartamento.numero }} <span class="block text-xs text-slate-400">{{ medicao.mes_referencia }}</span></div>
+      <a class="text-cyan-300 hover:underline" href="{% url 'historico_medicao' medicao.pk %}">{{ medicao.percentual_concluido }}% →</a>
+    </div>
+    {% empty %}<p class="text-slate-400 text-sm">Nenhuma medição cadastrada.</p>{% endfor %}
+  </section>
+</div>
+<p class="text-xs text-slate-500">Cada apartamento deve ter apenas uma medição por mês. Não há exclusão de torres, apartamentos ou medições nesta página.</p>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "obras/base_operacional.html" %}
+{% block title %}Etiquetas QR da tipologia{% endblock %}
+{% block content %}
+<style>
+@media print {
+  body {background: white!important; color:black!important;}
+  header, .nao-imprimir {display:none!important;}
+  main {max-width:100%!important;margin:0!important;padding:0!important;}
+  .etiqueta {break-inside:avoid;border:2px solid #111!important;color:#111!important;background:white!important;}
+  .etiqueta * {color:#111!important;}
+}
+</style>
+<div class="nao-imprimir flex justify-between flex-wrap gap-3 items-center">
+ <div>
+  <h1 class="text-2xl font-bold">Etiquetas QR por apartamento</h1>
+  <p class="text-sm text-slate-400">{{ tipo.torre.nome }} · {{ tipo.codigo }} / {{ tipo.nome }}</p>
+ </div>
+ <div class="flex gap-2 flex-wrap">
+  <a href="{% url 'catalogo_inteligente' %}?tipo={{ tipo.pk }}" class="btn btn-muted">Voltar</a>
+  <button onclick="window.print()" type="button" class="btn btn-primary">Imprimir etiquetas</button>
+ </div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+ {% for cfg in unidades %}
+ <div class="etiqueta bg-white text-black border border-slate-500 rounded-lg p-5 text-center">
+  <p class="font-extrabold text-xl text-black">SGO.IA</p>
+  <p class="text-black font-bold mt-2">{{ cfg.apartamento.torre.nome }}</p>
+  <p class="text-black text-lg font-bold">Apartamento {{ cfg.apartamento.numero }}</p>
+  <img src="{% url 'imagem_qr' cfg.apartamento_id %}" class="w-36 h-36 mx-auto my-3" alt="QR do apartamento {{ cfg.apartamento.numero }}" />
+  <p class="text-black text-xs">Escaneie, faça login e inicie a vistoria.</p>
+  <p class="text-gray-700 text-xs mt-2">QR não concede acesso sem autenticação.</p>
+ </div>
+ {% empty %}
+ <p class="text-sm text-slate-400">Não há apartamentos ativos vinculados à tipologia.</p>
+ {% endfor %}
+</div>
+{% endblock %}

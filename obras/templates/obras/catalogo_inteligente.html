@@ -1,0 +1,193 @@
+{% extends "obras/base_operacional.html" %}
+{% block title %}Projetos e tipologias{% endblock %}
+{% block content %}
+<div class="flex flex-wrap justify-between items-start gap-4">
+ <div>
+  <p class="text-cyan-400 text-xs uppercase tracking-widest font-bold">Medição parametrizada</p>
+  <h1 class="text-3xl font-black mt-1">Projetos, tipologias e critérios</h1>
+  <p class="text-slate-400 text-sm mt-2 max-w-3xl">
+   Cadastre o que é esperado em cada unidade antes de filmar. Os pesos são definidos
+   pela equipe técnica; a IA não aprova FVS nem altera automaticamente o avanço oficial.
+  </p>
+ </div>
+ <a href="{% url 'painel_principal' %}" class="btn btn-muted">Voltar ao painel</a>
+</div>
+<section class="panel p-4 text-sm border-l-4 border-amber-400">
+ <strong>Projetos de terceiros:</strong> envie PDFs somente com autorização da empresa.
+ Os arquivos ficam em armazenamento privado do protótipo, não no GitHub.
+ Itens extraídos das plantas exigem conferência humana e indicação da folha/revisão.
+</section>
+
+{% if pode_editar %}
+<details class="panel p-5">
+ <summary class="font-bold text-lg cursor-pointer">+ Criar tipologia</summary>
+ <form method="post" class="mt-4">
+  {% csrf_token %}<input type="hidden" name="acao" value="tipologia">
+  {{ formularios.tipologia.as_p }}
+  <button class="btn btn-primary" type="submit">Salvar tipologia</button>
+ </form>
+</details>
+{% endif %}
+<form method="get" class="panel p-4 flex flex-wrap gap-3 items-end">
+ <div class="flex-1 min-w-[200px]">
+  <label for="tipo">Selecione a tipologia</label>
+  <select name="tipo" id="tipo" class="block w-full bg-[#090e17] rounded p-3 border border-slate-700 text-white">
+   {% for tipo in tipologias %}
+   <option value="{{ tipo.pk }}" {% if tipologia.pk == tipo.pk %}selected{% endif %}>{{ tipo.torre.nome }} — {{ tipo.codigo }} / {{ tipo.nome }}</option>
+   {% empty %}<option>Cadastre uma tipologia</option>{% endfor %}
+  </select>
+ </div>
+ <button class="btn btn-primary" type="submit">Abrir</button>
+</form>
+
+{% if tipologia %}
+<section class="panel p-5">
+ <h2 class="text-xl font-bold">{{ tipologia.nome }} <span class="text-cyan-400 text-sm">{{ tipologia.codigo }}</span></h2>
+ <p class="text-sm text-slate-400">{{ tipologia.torre.nome }} · {{ tipologia.descricao|default:"Sem descrição" }}</p>
+ <p class="text-sm mt-3 {% if total_pesos == 100 %}text-emerald-400{% else %}text-amber-300{% endif %}">
+  Soma dos pesos dos serviços: <strong>{{ total_pesos }}% / 100%</strong>.
+  {% if total_pesos != 100 %}A medição ponderada permanecerá indisponível até completar 100%.{% endif %}
+ </p>
+</section>
+
+<div class="grid lg:grid-cols-2 gap-4">
+ <section class="panel p-5 space-y-3">
+  <h2 class="font-bold text-lg">Ambientes desta tipologia</h2>
+  {% for ambiente in tipologia.ambientes.all %}
+  <p class="text-sm border-b border-slate-800 pb-2"><span class="text-cyan-300">{{ ambiente.codigo }}</span> — {{ ambiente.nome }}
+   {% if ambiente.area_m2 %}<span class="text-slate-400">{{ ambiente.area_m2 }} m² (informado)</span>{% endif %}
+  </p>
+  {% empty %}<p class="text-slate-400 text-sm">Sem ambientes cadastrados.</p>{% endfor %}
+  {% if pode_editar %}
+  <details class="mt-3"><summary class="cursor-pointer text-cyan-300">+ Adicionar ambiente</summary>
+   <form method="post" action="?tipo={{ tipologia.pk }}" class="mt-3">
+    {% csrf_token %}<input type="hidden" name="acao" value="ambiente">
+    {{ formularios.ambiente.as_p }}
+    <button class="btn btn-primary" type="submit">Salvar ambiente</button>
+   </form>
+  </details>
+  {% endif %}
+ </section>
+
+ <section class="panel p-5 space-y-3">
+  <h2 class="font-bold text-lg">Serviços e critérios ponderados</h2>
+  {% for servico in servicos %}
+  <div class="rounded-lg border border-slate-800 bg-[#090e17] p-3">
+   <div class="flex justify-between gap-2 items-center">
+    <strong class="text-sm">{{ servico.codigo }} — {{ servico.nome }}</strong>
+    <strong class="text-cyan-300">{{ servico.peso }}%</strong>
+   </div>
+   <p class="text-xs text-slate-400 mt-2">Critérios internos (soma = 100% dentro do serviço):</p>
+   {% for criterio in servico.criterios.all %}
+   <p class="text-xs mt-1">
+    <span class="text-cyan-300">{{ criterio.peso }}%</span>
+    {{ criterio.descricao }}
+    {% if criterio.ambiente %}· {{ criterio.ambiente.nome }}{% endif %}
+    <span class="text-amber-300">({{ criterio.get_metodo_display }})</span>
+   </p>
+   {% empty %}<p class="text-amber-300 text-xs">Nenhum critério: avanço deste serviço indisponível.</p>{% endfor %}
+  </div>
+  {% empty %}<p class="text-slate-400 text-sm">Nenhum serviço cadastrado.</p>{% endfor %}
+  {% if pode_editar %}
+  <details><summary class="cursor-pointer text-cyan-300">+ Cadastrar serviço e seu peso</summary>
+   <form method="post" action="?tipo={{ tipologia.pk }}" class="mt-3">
+    {% csrf_token %}<input type="hidden" name="acao" value="servico">
+    {{ formularios.servico.as_p }}
+    <button type="submit" class="btn btn-primary">Salvar serviço</button>
+   </form>
+  </details>
+  <details><summary class="cursor-pointer text-cyan-300">+ Cadastrar critério de execução</summary>
+   <form method="post" action="?tipo={{ tipologia.pk }}" class="mt-3">
+    {% csrf_token %}<input type="hidden" name="acao" value="criterio">
+    {{ formularios.criterio.as_p }}
+    <p class="text-xs text-slate-400">Critérios como prumo, testes hidrossanitários ou elétrica embutida não podem ser certificados apenas por vídeo.</p>
+    <button type="submit" class="btn btn-primary">Salvar critério</button>
+   </form>
+  </details>
+  {% endif %}
+ </section>
+</div>
+
+<section class="panel p-5 space-y-4">
+ <div class="flex flex-wrap justify-between gap-3 items-center"><h2 class="font-bold text-xl">Apartamentos vinculados e QR Codes</h2>{% if pode_editar %}<div class="flex flex-wrap gap-2"><a href="{% url 'comparar_unidades_tipologia' tipologia.pk %}" class="btn btn-primary">Comparar unidades da mesma tipologia</a><a href="{% url 'etiquetas_tipologia' tipologia.pk %}" class="btn btn-muted">Imprimir todos os QR Codes</a></div>{% endif %}</div>
+ <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+ {% for cfg in unidades %}
+  <a class="border border-cyan-900 hover:border-cyan-400 rounded-lg p-3 bg-[#090e17]" href="{% url 'unidade_inteligente' cfg.apartamento_id %}">
+   <strong class="text-cyan-300">{{ cfg.apartamento }}</strong>
+   <p class="text-xs text-slate-400 mt-1">Abrir checklist, QR e vídeo →</p>
+  </a>
+ {% empty %}
+ <p class="text-slate-400 text-sm">Nenhuma unidade vinculada. Vincule um apartamento já cadastrado, sem criar ou modificar medições antigas.</p>
+ {% endfor %}
+ </div>
+ {% if pode_editar %}
+ <details><summary class="cursor-pointer text-cyan-300">+ Vincular apartamento à tipologia</summary>
+  <form method="post" action="?tipo={{ tipologia.pk }}" class="mt-3">
+   {% csrf_token %}<input type="hidden" name="acao" value="unidade">
+   {{ formularios.unidade.as_p }}
+   <button class="btn btn-primary" type="submit">Vincular e gerar QR</button>
+  </form>
+ </details>
+ {% endif %}
+</section>
+
+<section class="panel p-5 space-y-4">
+ <h2 class="font-bold text-xl">Projetos PDF (privados)</h2>
+ <p class="text-sm text-slate-400">Referências de arquitetura, elétrica, água, esgoto e estrutural.
+ Cada item esperado deve citar uma folha e só será enviado como referência à IA após conferência.</p>
+ <div class="space-y-3">
+ {% for doc in documentos %}
+  <div class="rounded-lg border border-slate-800 p-3 bg-[#090e17]">
+   <p class="text-sm"><strong>{{ doc.get_disciplina_display }}:</strong> {{ doc.nome }} · revisão {{ doc.revisao|default:"não informada" }}</p>
+   <p class="text-xs text-slate-500">SHA-256: {{ doc.sha256|slice:":16" }}… · {{ doc.enviado_em|date:"d/m/Y H:i" }}</p>
+   <a href="{% url 'documento_privado' doc.pk %}" class="text-xs text-cyan-300 underline">Baixar documento autenticado</a>
+  </div>
+ {% empty %}<p class="text-slate-400 text-sm">Sem PDFs anexados. Não publique plantas de empresa sem autorização.</p>{% endfor %}
+ </div>
+ {% if pode_editar %}
+ <details><summary class="cursor-pointer text-cyan-300">+ Adicionar PDF ao armazenamento privado</summary>
+  <form method="post" enctype="multipart/form-data" action="?tipo={{ tipologia.pk }}" class="mt-3">
+   {% csrf_token %}<input type="hidden" name="acao" value="documento">
+   {{ formularios.documento.as_p }}
+   <button type="submit" class="btn btn-primary">Salvar PDF protegido</button>
+  </form>
+ </details>
+ {% endif %}
+</section>
+
+<section class="panel p-5 space-y-4">
+ <h2 class="font-bold text-xl">Requisitos esperados do projeto</h2>
+ <p class="text-slate-400 text-sm">Quantidade e posição só devem ser consideradas comprovadas depois de conferência humana com o projeto revisado. A IA não deve inventar quantitativos.</p>
+ {% for item in itens %}
+ <div class="border-b border-slate-800 pb-3 text-sm">
+  <div class="flex justify-between items-start gap-3">
+   <div>
+    <strong>{{ item.referencia }}</strong> · {{ item.criterio.descricao }} — {{ item.descricao }}
+    <p class="text-xs text-slate-400 mt-1">Folha {{ item.pagina }} de {{ item.documento.nome }}
+      {% if item.quantidade != None %}· quantidade prevista {{ item.quantidade }} {{ item.unidade_medida }}{% endif %}
+    </p>
+   </div>
+   {% if item.conferido %}
+    <span class="text-emerald-400 text-xs">Conferido</span>
+   {% elif pode_editar %}
+    <form method="post" action="{% url 'conferir_item_projeto' item.pk %}">
+     {% csrf_token %}<button type="submit" class="text-xs text-amber-300 underline">Marcar como conferido</button>
+    </form>
+   {% else %}<span class="text-amber-300 text-xs">Pendente</span>{% endif %}
+  </div>
+ </div>
+ {% empty %}<p class="text-sm text-slate-400">Nenhum item esperado cadastrado. Não extraímos quantidades automaticamente das plantas.</p>{% endfor %}
+ {% if pode_editar %}
+ <details><summary class="cursor-pointer text-cyan-300">+ Cadastrar item esperado a partir da folha</summary>
+  <form method="post" action="?tipo={{ tipologia.pk }}" class="mt-3">
+   {% csrf_token %}<input type="hidden" name="acao" value="item_projeto">
+   {{ formularios.item_projeto.as_p }}
+   <button class="btn btn-primary" type="submit">Salvar item para conferência</button>
+  </form>
+ </details>
+ {% endif %}
+</section>
+{% else %}
+<section class="panel p-6 text-sm text-slate-300">Comece cadastrando uma tipologia (ex.: <strong>Tipo A</strong>) dentro de uma torre já existente. Nenhuma tipologia é inventada a partir dos PDFs.</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}Abrir RNC{% endblock %}
+{% block content %}
+<div class="max-w-3xl space-y-6">
+  <div>
+    <a class="text-cyan-300 text-sm hover:underline" href="{% url 'lista_rncs' %}">← Todas as RNCs</a>
+    <h1 class="text-3xl font-black mt-4">Registrar não conformidade</h1>
+    <p class="text-slate-400 text-sm mt-2">{{ medicao.apartamento.torre.nome }} · Apto {{ medicao.apartamento.numero }} · {{ medicao.mes_referencia }}</p>
+  </div>
+  <div class="panel p-5 text-sm">
+    <h2 class="font-bold text-white">Medição vinculada</h2>
+    <p class="mt-2 text-slate-300">Execução física: <strong>{{ medicao.percentual_concluido }}%</strong> · FVS: <strong>{{ medicao.get_status_iso_display }}</strong></p>
+    <p class="text-amber-200 mt-2 font-semibold" role="note">Atenção: registrar esta RNC altera a FVS para NÃO CONFORME e revoga qualquer aprovação anterior, exigindo nova conferência da equipe técnica. O percentual físico da obra não é alterado.</p>
+    <p class="text-slate-400 text-xs mt-2">Qualquer usuário autenticado pode comunicar uma não conformidade. Somente a equipe autorizada pode tratá-la e encerrá-la; encerrar a RNC não aprova a FVS automaticamente.</p>
+  </div>
+  <form method="post" class="panel p-6 space-y-4">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="flex flex-wrap gap-3">
+      <button type="submit" class="btn btn-primary">Registrar RNC</button>
+      <a href="{% url 'historico_medicao' medicao.pk %}" class="btn btn-muted">Cancelar</a>
+    </div>
+  </form>
+  <p class="text-xs text-slate-500">O registro serve ao acompanhamento interno de qualidade. A inspeção e a decisão técnica continuam sob responsabilidade de profissional habilitado.</p>
+</div>
+{% endblock %}

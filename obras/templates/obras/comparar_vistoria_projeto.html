@@ -1,0 +1,71 @@
+{% extends "obras/base_operacional.html" %}
+{% block title %}Comparar obra com projeto{% endblock %}
+{% block content %}
+<div class="flex flex-wrap justify-between items-start gap-3">
+ <div>
+  <p class="text-cyan-400 uppercase text-xs tracking-widest font-bold">Comparação visual assistida</p>
+  <h1 class="text-2xl font-black mt-2">Vídeo × projeto — {{ visto.apartamento }}</h1>
+  <p class="text-slate-400 text-sm mt-2">Vista lado a lado para conferência humana. Não há alinhamento espacial automático, georreferenciamento de câmera, identificação BIM nem medição geométrica certificada.</p>
+ </div>
+ <a href="{% url 'detalhe_vistoria_inteligente' visto.pk %}" class="btn btn-muted">Voltar à análise</a>
+</div>
+<section class="panel p-4 border-l-4 border-amber-400 text-sm">
+ <strong>Importante:</strong> o PDF pode mostrar uma revisão anterior à obra. Confirme a revisão vigente, a tipologia correta e a orientação do ambiente antes de apontar divergências. Uma ausência no vídeo não significa ausência na obra.
+</section>
+<form method="get" class="panel p-4 flex flex-wrap gap-3 items-end">
+ <div class="flex-1 min-w-[240px]">
+  <label for="docSel">Projeto para comparar</label>
+  <select id="docSel" name="documento" class="w-full bg-[#090e17] text-white rounded border border-slate-700 p-3">
+   {% for doc in documentos %}
+    <option value="{{ doc.pk }}" {% if documento.pk == doc.pk %}selected{% endif %}>{{ doc.get_disciplina_display }} — {{ doc.nome }} (rev. {{ doc.revisao|default:"não informada" }})</option>
+   {% empty %}<option>Sem projetos vinculados a esta tipologia</option>{% endfor %}
+  </select>
+ </div>
+ <button type="submit" class="btn btn-primary">Carregar projeto</button>
+</form>
+<div class="grid lg:grid-cols-2 gap-4">
+ <section class="panel p-4">
+  <h2 class="font-bold text-lg mb-3">Registro da obra — vídeo + narração</h2>
+  <video controls preload="metadata" playsinline class="w-full rounded-lg bg-black aspect-video"
+         src="{% url 'video_reproducao' visto.pk %}"></video>
+  <p class="text-xs text-slate-400 mt-3">Registrado em {{ visto.criado_em|date:"d/m/Y H:i" }} · {{ visto.get_estado_display }}</p>
+  <p class="text-sm mt-2">{{ visto.observacao|default:"Nenhuma observação declarada." }}</p>
+  {% if visto.transcricao_ia %}
+   <details class="mt-3"><summary class="text-cyan-300 cursor-pointer">Ver narração transcrita pela IA</summary>
+    <p class="text-sm text-slate-300 mt-2 whitespace-pre-line">{{ visto.transcricao_ia }}</p>
+   </details>
+  {% endif %}
+ </section>
+ <section class="panel p-4">
+  <h2 class="font-bold text-lg mb-3">Projeto técnico — PDF privado</h2>
+  {% if documento %}
+   <p class="text-xs text-slate-400 mb-2">{{ documento.get_disciplina_display }} · revisão {{ documento.revisao|default:"não informada" }}</p>
+   <iframe title="Projeto técnico PDF autenticado" loading="lazy"
+      class="w-full bg-white rounded-lg min-h-[360px] md:min-h-[540px]"
+      src="{% url 'documento_visualizacao' documento.pk %}#page=1"
+      referrerpolicy="same-origin"></iframe>
+   <a href="{% url 'documento_privado' documento.pk %}" class="text-xs text-cyan-300 underline block mt-2">Baixar PDF para ampliar</a>
+  {% else %}
+   <p class="text-sm text-slate-400">Cadastre um PDF na tipologia para habilitar a comparação lado a lado.</p>
+   <a href="{% url 'catalogo_inteligente' %}?tipo={{ cfg.tipologia_id }}" class="text-cyan-300 underline text-sm">Ir aos projetos</a>
+  {% endif %}
+ </section>
+</div>
+{% if documento %}
+<section class="panel p-5">
+ <h2 class="font-bold text-xl mb-2">Itens esperados desta folha</h2>
+ <p class="text-slate-400 text-xs mb-4">Listagem cadastrada por um profissional. Apenas itens conferidos são considerados referências permitidas para análise da IA.</p>
+ {% for item in itens %}
+  <div class="p-3 border-b border-slate-800 text-sm">
+   <strong>{{ item.referencia }}</strong> — {{ item.descricao }}
+   <p class="text-xs mt-1 text-slate-400">Folha {{ item.pagina }} · {{ item.criterio.descricao }}
+    · {% if item.quantidade != None %}{{ item.quantidade }} {{ item.unidade_medida }}{% else %}Quantidade não informada{% endif %}
+    · {% if item.conferido %}<span class="text-emerald-400">Conferido</span>{% else %}<span class="text-amber-300">Ainda não conferido</span>{% endif %}
+   </p>
+  </div>
+ {% empty %}
+  <p class="text-slate-400 text-sm">Nenhum item técnico cadastrado para esse projeto. O vídeo e o PDF podem ser comparados visualmente, mas a IA não inferirá quantitativos do desenho.</p>
+ {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

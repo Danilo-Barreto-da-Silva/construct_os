@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,17 +21,41 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xt3od3l38k6effdbs+5(1)-x)e$-xsse-min4doaa@i-e43&ic'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if os.environ.get('DJANGO_DEBUG', '0') == '1':
+        SECRET_KEY = 'dev-only-not-for-production-change-me'
+    else:
+        raise RuntimeError('Defina DJANGO_SECRET_KEY no ambiente.')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', '0') == '1'
 
-ALLOWED_HOSTS = ['*']
+# A instância pública exige hostname e segredo próprios.
+if not DEBUG and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith('django-insecure-')):
+    raise RuntimeError('Defina DJANGO_SECRET_KEY forte e exclusiva (mínimo 50 caracteres).')
+if not DEBUG and not os.environ.get('DJANGO_ALLOWED_HOSTS', '').strip():
+    raise RuntimeError('Defina DJANGO_ALLOWED_HOSTS explicitamente fora do desenvolvimento.')
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://*.app.github.dev',
-    'https://*.pythonanywhere.com',
-]
+ALLOWED_HOSTS = [host.strip() for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if host.strip()]
+
+# Defaults seguros quando DEBUG=0. CI com cliente HTTP desativa apenas
+# redirecionamento SSL na etapa de testes (nunca na verificação de deploy).
+SECURE_SSL_REDIRECT = not DEBUG and os.environ.get('DJANGO_SECURE_SSL_REDIRECT', '1') == '1'
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = int(os.environ.get('DJANGO_HSTS_SECONDS', '3600' if not DEBUG else '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+
+# Só habilitar quando houver proxy reverso CONFIÁVEL que remova cabeçalhos
+# de clientes e regrave X-Forwarded-Proto corretamente.
+if not DEBUG and os.environ.get('DJANGO_TRUST_PROXY_HTTPS', '0') == '1':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
 
 
 # Application definition
@@ -51,6 +76,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'obras.middleware_seguranca.LimiteTentativasAdminMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -108,9 +134,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'pt-br'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Sao_Paulo'
 
 USE_I18N = True
 
@@ -120,21 +146,80 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Fail closed para arquivos estáticos ausentes em ambiente de implantação.
+# Requer `npm ci && npm run build:assets && python manage.py collectstatic`.
+if not DEBUG:
+    STORAGES = {
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage',
+        },
+    }
 
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+# Em desenvolvimento, imprimir e-mails somente no console.
+# Fora do DEBUG, exigir um servidor SMTP explícito e não usar backends fake.
+if DEBUG:
+    MAILERS = {
+        'default': {'BACKEND': 'django.core.mail.backends.console.EmailBackend'},
+    }
+else:
+    smtp_host = os.environ.get('DJANGO_SMTP_HOST', '').strip()
+    if not smtp_host:
+        raise RuntimeError('Defina DJANGO_SMTP_HOST para a configuração de produção.')
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'OPTIONS': {
+                'host': smtp_host,
+                'port': int(os.environ.get('DJANGO_SMTP_PORT', '587')),
+                'username': os.environ.get('DJANGO_SMTP_USER', ''),
+                'password': os.environ.get('DJANGO_SMTP_PASSWORD', ''),
+                'use_tls': os.environ.get('DJANGO_SMTP_TLS', '1') == '1',
+                'timeout': 10,
+            },
+        },
+    }
 
-import os
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Quando criar sua chave no Google AI Studio, troque "MODO_SIMULACAO" pela sua chave
+# Configuração exclusivamente por variável de ambiente. Nunca versionar a chave.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "MODO_SIMULACAO")
+# Gemini 2.5 pode aparecer na listagem mesmo indisponível para contas novas.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+# Logs operacionais privados. Não registrar senhas, tokens, URL de arquivo remoto
+# nem conteúdo dos vídeos. Em produção, encaminhar stderr a coletor protegido.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'operacional': {
+            'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'operacional',
+        }
+    },
+    'loggers': {
+        'obras': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# A proteção de tentativas de login usa o cache Django. O cache padrão
+# LocMem é adequado somente ao desenvolvimento em um único processo.
+# ANTES DO DEPLOY com múltiplos workers, configurar CACHES['default']
+# com backend compartilhado (Redis/Memcached) e validar o bloqueio.

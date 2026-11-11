@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histórico de Vistoria | Construct OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body{background:#090e17;color:#e2e8f0}</style>
+</head>
+<body class="min-h-screen">
+    <header class="border-b border-slate-800 bg-[#0d1424] px-5 py-4">
+        <div class="max-w-5xl mx-auto flex flex-wrap justify-between items-center gap-3">
+            <div class="font-black tracking-wide text-cyan-400">SGO.IA <span class="font-normal text-slate-400 text-xs">/ RASTREABILIDADE DE MEDIÇÕES</span></div>
+            <a class="rounded-lg bg-slate-800 hover:bg-slate-700 px-4 py-2 text-sm" href="{% url 'painel_principal' %}?mes={{ medicao.mes_referencia|urlencode }}&amp;torre={{ medicao.apartamento.torre_id }}&amp;andar={{ medicao.apartamento.andar }}">← Voltar ao painel</a>
+        </div>
+    </header>
+    <main class="max-w-5xl mx-auto px-5 py-8 space-y-6">
+        <div>
+            <p class="text-xs uppercase tracking-wider text-cyan-400 font-semibold">Histórico da medição • {{ medicao.mes_referencia }}</p>
+            <h1 class="text-2xl md:text-3xl font-black mt-2">{{ medicao.apartamento.torre.nome }} — Apto {{ medicao.apartamento.numero }}</h1>
+            <p class="text-sm text-slate-400 mt-2">Registros de alterações efetuadas depois da implantação do histórico. Os dados anteriores não possuem autoria retroativa.</p>
+        </div>
+        <div class="grid md:grid-cols-3 gap-3">
+            <section class="bg-[#11192c] border border-slate-800 rounded-xl p-4">
+                <h2 class="text-xs text-slate-400 uppercase">Execução física atual</h2>
+                <p class="text-3xl font-bold text-cyan-400 mt-2">{{ medicao.percentual_concluido }}%</p>
+            </section>
+            <section class="bg-[#11192c] border border-slate-800 rounded-xl p-4">
+                <h2 class="text-xs text-slate-400 uppercase">Situação da FVS</h2>
+                <p class="text-lg font-semibold mt-2">{{ medicao.get_status_iso_display }}</p>
+            </section>
+            <section class="bg-[#11192c] border border-slate-800 rounded-xl p-4">
+                <h2 class="text-xs text-slate-400 uppercase">Aprovação administrativa</h2>
+                {% if medicao.fvs_aprovada_por and medicao.fvs_aprovada_em %}
+                <p class="text-sm font-semibold mt-2">{{ medicao.fvs_aprovada_por.get_username }}</p>
+                <p class="text-xs text-slate-400 mt-1">{{ medicao.fvs_aprovada_em|date:"d/m/Y H:i" }}</p>
+                {% else %}
+                <p class="text-sm text-slate-400 mt-2">Sem aprovação registrada nesta versão</p>
+                {% endif %}
+            </section>
+        </div>
+        <section class="bg-[#11192c] border border-slate-800 rounded-xl p-5">
+            <h2 class="text-lg font-bold mb-4">Linha do tempo de alterações</h2>
+            {% for registro in registros %}
+            <article class="border-l-2 {% if registro.origem == 'SUGESTAO_IA' %}border-cyan-500{% else %}border-amber-500{% endif %} pl-4 py-2 mb-5">
+                <div class="flex flex-wrap justify-between gap-2">
+                    <h3 class="font-bold">{{ registro.get_origem_display }}</h3>
+                    <time class="text-xs text-slate-400">{{ registro.registrado_em|date:"d/m/Y H:i:s" }}</time>
+                </div>
+                <p class="text-sm text-slate-400 mt-1">Registrado por: <strong class="text-slate-200">{% if registro.autor %}{{ registro.autor.get_username }}{% else %}Usuário excluído{% endif %}</strong></p>
+                {% if registro.origem == 'MANUAL' %}
+                <div class="grid sm:grid-cols-2 gap-3 text-sm mt-3">
+                    <div class="bg-[#090e17] rounded-lg p-3"><strong class="text-slate-400 block text-xs uppercase">Avanço físico</strong>{{ registro.percentual_anterior }}% → {{ registro.percentual_novo }}%</div>
+                    <div class="bg-[#090e17] rounded-lg p-3"><strong class="text-slate-400 block text-xs uppercase">Situação FVS</strong>{{ registro.status_anterior }} → {{ registro.status_novo }}</div>
+                    <div class="sm:col-span-2 bg-[#090e17] rounded-lg p-3"><strong class="text-slate-400 block text-xs uppercase">Etapa</strong>{{ registro.etapa_anterior }} → {{ registro.etapa_nova }}</div>
+                </div>
+                {% else %}
+                <p class="mt-2 text-xs text-cyan-300">A sugestão não alterou o percentual nem aprovou a FVS.</p>
+                {% endif %}
+                {% if registro.observacao %}
+                <p class="mt-3 text-sm whitespace-pre-line break-words"><strong class="text-slate-400">Observação:</strong> {{ registro.observacao }}</p>
+                {% endif %}
+            </article>
+            {% empty %}
+            <p class="text-slate-400 text-sm py-8 text-center">Ainda não há alterações registradas nesta medição. O primeiro salvamento de mudanças criará um registro aqui.</p>
+            {% endfor %}
+        </section>
+        <p class="text-xs text-slate-500">Aprovação administrativa não equivale a assinatura digital de FVS nem substitui os procedimentos de inspeção e verificação previstos para a obra.</p>
+    </main>
+</body>
+</html>

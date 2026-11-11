@@ -1,0 +1,17 @@
+{
+  "name": "construct-os-assets",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Compilação local do Tailwind CSS do SGO.IA; evita CDN em implantação.",
+  "scripts": {
+    "build:css": "tailwindcss -i ./assets/tailwind.css -o ./obras/static/obras/css/tailwind.min.css --minify",
+    "build:css:dev": "tailwindcss -i ./assets/tailwind.css -o ./obras/static/obras/css/tailwind.min.css --watch",
+    "build:assets": "npm run build:css && node ./scripts/copy-vendor.mjs"
+  },
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "6.4.0",
+    "apexcharts": "3.54.1",
+    "tailwindcss": "3.4.19",
+    "three": "0.170.0"
+  }
+}

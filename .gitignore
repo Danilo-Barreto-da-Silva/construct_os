@@ -1,0 +1,19 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+db.sqlite3
+db.sqlite3-*
+media/
+staticfiles/
+.pytest_cache/
+.coverage
+.idea/
+.vscode/
+
+# Artefatos reconstruídos pelo compilador CSS local
+node_modules/
+obras/static/obras/css/tailwind.min.css

@@ -1,0 +1,154 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <meta name="color-scheme" content="dark">
+ <title>{% block title %}Painel{% endblock %} | SGO.IA</title>
+ <link rel="stylesheet" href="{% static 'obras/css/tailwind.min.css' %}">
+ {% block head_extra %}{% endblock %}
+ <style>
+  :root{--sgo-bg:#080f1b;--sgo-surface:#111b2b;--sgo-border:#26374e;--sgo-mute:#95a9c1;--sgo-accent:#52d9f3}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--sgo-bg);color:#eaf1fb;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+  a,button,summary,select,input{transition:border-color .18s,background-color .18s,color .18s}
+  a:focus-visible,button:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #48d1ef;outline-offset:3px}
+  .panel{background:var(--sgo-surface);border:1px solid var(--sgo-border);border-radius:1rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:.65rem;font-size:.875rem;font-weight:650;padding:.65rem 1rem;gap:.4rem}
+  .btn-primary{background:#38cce9;color:#081422}.btn-primary:hover{background:#91e8f8}
+  .btn-muted{background:#1e3046;color:#e2e8f0}.btn-muted:hover{background:#2c425b}
+  label{color:#b0bfd1;font-size:.86rem}.errorlist{color:#fda4af;font-size:.86rem;margin:.3rem 0}
+  form p{margin-bottom:.85rem}form p label{display:block;margin-bottom:.35rem}
+  form p input,form p textarea,form p select{width:100%;background:#0a1525;border:1px solid #465a73;border-radius:.6rem;padding:.65rem .8rem;color:#fff}
+  .sgo-sidebar{position:fixed;z-index:80;inset:0 auto 0 0;width:260px;background:#0d1726;border-right:1px solid #23364a;display:flex;flex-direction:column;transition:transform .22s ease,width .22s ease}
+  .sgo-main{margin-left:260px;min-height:100dvh;transition:margin-left .22s ease}
+  .sgo-topbar{height:70px;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0 clamp(1rem,3vw,2rem);border-bottom:1px solid #203246;background:#0b1422}
+  .sgo-content{max-width:1480px;padding:clamp(1rem,2.8vw,2rem);margin:0 auto}
+  .sgo-nav{overflow-y:auto;flex:1;padding:1rem .65rem 2rem;scrollbar-width:thin}
+  .sgo-menu-title{color:#8296ac;text-transform:uppercase;font-size:.65rem;font-weight:750;letter-spacing:.12em;padding:.8rem .85rem .45rem}
+  .sgo-link{display:flex;align-items:center;gap:.85rem;width:100%;padding:.7rem .85rem;border:1px solid transparent;border-radius:.7rem;color:#b9cadb;text-decoration:none;font-size:.88rem;min-height:44px}
+  .sgo-link:hover,.sgo-link[aria-current="page"]{background:#183047;color:#f1feff;border-color:#24485c}
+  .sgo-link[aria-current="page"]{box-shadow:inset 3px 0 0 #38d1e9}
+  .sgo-icon{width:19px;height:19px;flex:none;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linejoin:round;stroke-linecap:round}
+  .sgo-navgroup summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:.68rem .85rem;color:#9cb3cb;font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.075em}
+  .sgo-navgroup summary::-webkit-details-marker{display:none}.sgo-navgroup summary:after{content:'⌄';font-size:1rem}.sgo-navgroup:not([open]) summary:after{content:'›'}
+  .sgo-logo{display:flex;align-items:center;gap:.8rem;height:70px;padding:0 1.1rem;border-bottom:1px solid #22354b;text-decoration:none;color:#fff}
+  .sgo-brandmark{width:38px;height:38px;display:grid;place-items:center;background:linear-gradient(145deg,#123d55,#174c68);border:1px solid #307b95;color:#65dff4;border-radius:12px;font-weight:900;letter-spacing:-.09em}
+  .sgo-brandtext{font-size:1.1rem;font-weight:800;letter-spacing:.02em}.sgo-subbrand{display:block;font-size:.6rem;color:#8ca4bb;letter-spacing:.12em;text-transform:uppercase}
+  .sgo-toggle{min-width:40px;min-height:40px;display:inline-grid;place-items:center;background:#16263b;border:1px solid #2b4359;border-radius:.65rem;cursor:pointer;color:#dce7f3}
+  .sgo-overlay{display:none}
+  .sgo-user{display:flex;align-items:center;gap:.6rem;border:1px solid #253b53;border-radius:99px;padding:.45rem .8rem;color:#b7c9da;font-size:.78rem;max-width:38vw}
+  .sgo-user-dot{width:8px;height:8px;background:#35c9ad;border-radius:99px;flex:none}
+  .sgo-actionhead{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+  .sgo-section-title{font-size:1rem;font-weight:700;color:#edf5fc}
+  .sgo-kpi{background:#121e31;border:1px solid #283e55;border-radius:1rem;padding:1.25rem}
+  .sgo-kpi-label{font-size:.7rem;letter-spacing:.095em;color:#a0b4cc;text-transform:uppercase;font-weight:700}
+  .sgo-kpi-value{font-size:clamp(1.65rem,2.8vw,2.5rem);font-weight:800;letter-spacing:-.04em;line-height:1.2;margin:.65rem 0}
+  .sgo-field{border:1px solid #3c506b;background:#0b1829;color:#e6f0fa;border-radius:.65rem;padding:.62rem .78rem;min-height:42px}
+  .sgo-expand{background:#101d2e;border:1px solid #2a3d55;border-radius:1rem;overflow:hidden}
+  .sgo-expand>summary{list-style:none;padding:1.05rem 1.2rem;cursor:pointer;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:1rem}
+  .sgo-expand>summary::-webkit-details-marker{display:none}
+  .sgo-expand>summary:after{content:'+';font-size:1.3rem;color:#89a4bc;line-height:1}
+  .sgo-expand[open]>summary:after{content:'−'}
+  .sgo-expand[open]>summary{border-bottom:1px solid #283d54}
+  .sgo-expand-body{padding:1.2rem}
+  .sgo-muted{color:#91a6bc}
+  @media(min-width:1024px){
+   body.sgo-collapsed .sgo-sidebar{width:78px}
+   body.sgo-collapsed .sgo-main{margin-left:78px}
+   body.sgo-collapsed .sgo-logo{padding:0 1.1rem}
+   body.sgo-collapsed .sgo-brandtext,body.sgo-collapsed .sgo-navtext,body.sgo-collapsed .sgo-menu-title,body.sgo-collapsed .sgo-navgroup summary{display:none}
+   body.sgo-collapsed .sgo-nav{padding:.8rem .6rem}
+   body.sgo-collapsed .sgo-link{justify-content:center;padding:.78rem}
+  }
+  @media(max-width:1023px){
+   .sgo-sidebar{transform:translateX(-102%)}
+   .sgo-main{margin-left:0}
+   body.sgo-open .sgo-sidebar{transform:translateX(0)}
+   body.sgo-open .sgo-overlay{display:block;position:fixed;inset:0;background:#020713bd;z-index:70}
+   body.sgo-open{overflow:hidden}
+   .sgo-user{max-width:52vw}
+  }
+  @media(prefers-reduced-motion:reduce){.sgo-sidebar,.sgo-main,a,button{transition:none!important}}
+ </style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute;overflow:hidden">
+ <symbol id="sgo-i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+ <symbol id="sgo-i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H3zM9 20v-7h6v7"/></symbol>
+ <symbol id="sgo-i-building" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h2M15 7h2M9 11h2M15 11h2M9 15h2M15 15h2"/></symbol>
+ <symbol id="sgo-i-video" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
+ <symbol id="sgo-i-graph" viewBox="0 0 24 24"><path d="M3 19h18M5 16l5-6 4 3 5-8"/></symbol>
+ <symbol id="sgo-i-clipboard" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="17" rx="2"/><path d="M9 5V3h6v2M8 11h8M8 15h5"/></symbol>
+ <symbol id="sgo-i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6M9 17h6"/></symbol>
+ <symbol id="sgo-i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M19 5l-2 2M7 17l-2 2"/></symbol>
+ <symbol id="sgo-i-logout" viewBox="0 0 24 24"><path d="M10 4H4v16h6m4-12 4 4-4 4m4-4H9"/></symbol>
+</svg>
+<div class="sgo-overlay" id="sgo-overlay" aria-hidden="true"></div>
+<aside class="sgo-sidebar" id="sgo-sidebar" aria-label="Menu lateral de navegação">
+ <a class="sgo-logo" href="{% url 'painel_principal' %}" title="SGO.IA — Painel principal">
+  <span class="sgo-brandmark">S</span>
+  <span class="sgo-brandtext">SGO.IA<span class="sgo-subbrand">Engenharia inteligente</span></span>
+ </a>
+ <nav class="sgo-nav" aria-label="Módulos do sistema">
+  <div class="sgo-menu-title">Visão geral</div>
+  <a class="sgo-link" href="{% url 'painel_principal' %}" {% if request.resolver_match.url_name == 'painel_principal' %}aria-current="page"{% endif %} title="Painel executivo"><svg class="sgo-icon"><use href="#sgo-i-home"/></svg><span class="sgo-navtext">Painel executivo</span></a>
+  <a class="sgo-link" href="{% url 'catalogo_inteligente' %}" {% if request.resolver_match.url_name == 'catalogo_inteligente' %}aria-current="page"{% endif %} title="Unidades e projetos"><svg class="sgo-icon"><use href="#sgo-i-building"/></svg><span class="sgo-navtext">Obras e unidades</span></a>
+  <details class="sgo-navgroup" open><summary>Vistorias e qualidade</summary>
+   <a class="sgo-link" href="{% url 'catalogo_inteligente' %}" title="Vistorias multimodais"><svg class="sgo-icon"><use href="#sgo-i-video"/></svg><span class="sgo-navtext">Vistorias com IA</span></a>
+   <a class="sgo-link" href="{% url 'lista_rncs' %}" {% if request.resolver_match.url_name == 'lista_rncs' %}aria-current="page"{% endif %} title="Não conformidades"><svg class="sgo-icon"><use href="#sgo-i-clipboard"/></svg><span class="sgo-navtext">Não conformidades</span></a>
+  </details>
+  <details class="sgo-navgroup" open><summary>Planejamento</summary>
+   <a class="sgo-link" href="{% url 'planejamento' %}" {% if request.resolver_match.url_name == 'planejamento' %}aria-current="page"{% endif %} title="Metas mensais"><svg class="sgo-icon"><use href="#sgo-i-graph"/></svg><span class="sgo-navtext">Metas mensais</span></a>
+   <a class="sgo-link" href="{% url 'planejamento_fisico' %}" {% if request.resolver_match.url_name == 'planejamento_fisico' %}aria-current="page"{% endif %} title="Curva S física"><svg class="sgo-icon"><use href="#sgo-i-graph"/></svg><span class="sgo-navtext">Curva S física</span></a>
+  </details>
+  {% if request.user.is_staff %}
+  <div class="sgo-menu-title">Administração</div>
+  <a class="sgo-link" href="{% url 'relatorios' %}" {% if request.resolver_match.url_name == 'relatorios' %}aria-current="page"{% endif %} title="Relatórios"><svg class="sgo-icon"><use href="#sgo-i-file"/></svg><span class="sgo-navtext">Relatórios</span></a>
+  <a class="sgo-link" href="{% url 'cadastros' %}" {% if request.resolver_match.url_name == 'cadastros' %}aria-current="page"{% endif %} title="Cadastros"><svg class="sgo-icon"><use href="#sgo-i-settings"/></svg><span class="sgo-navtext">Cadastros</span></a>
+  {% endif %}
+ </nav>
+ <div class="px-3 py-3 border-t border-[#25364a]">
+  <form method="post" action="{% url 'logout_sistema' %}">{% csrf_token %}
+   <button type="submit" class="sgo-link text-rose-300 hover:text-rose-200" title="Encerrar sessão"><svg class="sgo-icon"><use href="#sgo-i-logout"/></svg><span class="sgo-navtext">Sair da conta</span></button>
+  </form>
+ </div>
+</aside>
+<div class="sgo-main">
+ <header class="sgo-topbar">
+  <div class="flex items-center gap-3 min-w-0">
+   <button class="sgo-toggle" id="sgo-toggle" type="button" aria-label="Abrir ou recolher menu lateral" aria-controls="sgo-sidebar" aria-expanded="false"><svg class="sgo-icon"><use href="#sgo-i-menu"/></svg></button>
+   <div class="min-w-0"><p class="text-xs tracking-[.16em] uppercase text-slate-500 font-bold">SGO.IA / Plataforma de engenharia</p><p class="text-sm text-slate-200 font-semibold truncate">{% block page_heading %}Painel de controle{% endblock %}</p></div>
+  </div>
+  <span class="sgo-user" title="Usuário autenticado"><span class="sgo-user-dot"></span><span class="truncate">{{ request.user.get_username }}</span></span>
+ </header>
+ <main id="conteudo-principal" class="sgo-content space-y-6">
+  {% for message in messages %}<p class="panel p-4 text-sm border-l-4 border-cyan-400" role="status">{{ message }}</p>{% endfor %}
+  {% block content %}{% endblock %}
+ </main>
+ <footer class="max-w-[1480px] mx-auto px-6 pb-6 text-xs text-slate-600">SGO.IA · Registros técnicos e evidências devem ser interpretados conforme seu nível de verificação.</footer>
+</div>
+<script>
+(function(){
+ const body=document.body,toggle=document.getElementById('sgo-toggle'),overlay=document.getElementById('sgo-overlay'),sidebar=document.getElementById('sgo-sidebar');
+ const desktop=()=>window.matchMedia('(min-width: 1024px)').matches;
+ try{if(desktop()&&localStorage.getItem('sgo-sidebar-compact')==='1')body.classList.add('sgo-collapsed')}catch(e){}
+ function closeMobile(){body.classList.remove('sgo-open');toggle.setAttribute('aria-expanded','false')}
+ toggle.addEventListener('click',()=>{
+  if(desktop()){
+   body.classList.toggle('sgo-collapsed');
+   try{localStorage.setItem('sgo-sidebar-compact',body.classList.contains('sgo-collapsed')?'1':'0')}catch(e){}
+  }else{
+   body.classList.toggle('sgo-open');toggle.setAttribute('aria-expanded',String(body.classList.contains('sgo-open')));
+  }
+ });
+ overlay.addEventListener('click',closeMobile);
+ document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMobile()});
+ sidebar.querySelectorAll('a').forEach(link=>link.addEventListener('click',closeMobile));
+ window.addEventListener('resize',()=>{if(desktop())closeMobile()});
+})();
+</script>
+{% block scripts_extra %}{% endblock %}
+</body>
+</html>

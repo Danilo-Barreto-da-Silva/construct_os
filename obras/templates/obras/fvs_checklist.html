@@ -1,0 +1,84 @@
+{% extends 'obras/base_operacional.html' %}
+{% block title %}Checklist de FVS{% endblock %}
+{% block content %}
+<div class="flex flex-wrap justify-between items-end gap-3">
+  <div>
+    <p class="text-xs text-cyan-400 tracking-widest uppercase">Ficha de verificação de serviço</p>
+    <h1 class="text-3xl font-black mt-1">Checklist FVS — Apto {{ medicao.apartamento.numero }}</h1>
+    <p class="text-sm text-slate-400 mt-2">{{ medicao.apartamento.torre.nome }} · {{ medicao.mes_referencia }} · {{ medicao.etapa_atual }}</p>
+  </div>
+  <a href="{% url 'historico_medicao' medicao.pk %}" class="btn btn-muted">Histórico da medição</a>
+</div>
+<div class="grid md:grid-cols-3 gap-4">
+  <div class="panel p-4"><h2 class="uppercase text-xs text-slate-400">Execução física</h2><p class="text-3xl text-cyan-400 font-bold mt-2">{{ medicao.percentual_concluido }}%</p></div>
+  <div class="panel p-4"><h2 class="uppercase text-xs text-slate-400">Situação atual</h2><p class="font-semibold mt-2">{{ medicao.get_status_iso_display }}</p></div>
+  <div class="panel p-4"><h2 class="uppercase text-xs text-slate-400">Última aprovação administrativa</h2><p class="text-sm mt-2">{% if medicao.fvs_aprovada_por %}{{ medicao.fvs_aprovada_por.get_username }} · {{ medicao.fvs_aprovada_em|date:"d/m/Y H:i" }}{% else %}Sem aprovação atribuída{% endif %}</p></div>
+</div>
+<div class="grid lg:grid-cols-3 gap-5">
+  <section class="lg:col-span-2 panel p-5 space-y-4">
+    <h2 class="text-xl font-bold">Itens de inspeção</h2>
+    <p class="text-sm text-slate-400">Cada item informa o que foi verificado, por quem e qual foi o resultado. Adicionar ou alterar um item depois da aprovação reabre a FVS para nova avaliação.</p>
+    {% for item in itens %}
+    <article class="bg-[#090e17] border border-slate-800 rounded-xl p-4 space-y-3">
+      <div class="flex flex-wrap justify-between gap-2 items-start">
+        <div>
+          <h3 class="font-semibold">{{ item.descricao }}</h3>
+          <p class="text-xs text-slate-400 mt-1">{% if item.verificado_por %}{{ item.verificado_por.get_username }}{% else %}Não informado{% endif %} · {{ item.atualizado_em|date:"d/m/Y H:i" }}</p>
+        </div>
+        <span class="text-sm font-bold {% if item.resultado == 'CONFORME' %}text-emerald-400{% elif item.resultado == 'NAO_CONFORME' %}text-rose-400{% else %}text-amber-300{% endif %}">{{ item.get_resultado_display }}</span>
+      </div>
+      {% if item.observacao %}<p class="text-sm text-slate-300 whitespace-pre-line">{{ item.observacao }}</p>{% endif %}
+      {% if pode_aprovar %}
+      <details class="border-t border-slate-800 pt-2">
+        <summary class="text-xs text-cyan-300 cursor-pointer">Editar item e registrar nova verificação</summary>
+        <form method="post" action="{% url 'editar_item_fvs' medicao.pk item.pk %}" class="grid gap-3 mt-3 text-sm">
+          {% csrf_token %}
+          <label>Descrição<input required maxlength="180" name="descricao" value="{{ item.descricao }}" class="block mt-1 w-full bg-[#11192c] rounded-lg p-2 border border-slate-700 text-white"></label>
+          <label>Resultado
+            <select name="resultado" class="block mt-1 w-full bg-[#11192c] rounded-lg p-2 border border-slate-700 text-white">
+              <option value="PENDENTE" {% if item.resultado == 'PENDENTE' %}selected{% endif %}>Não verificado</option>
+              <option value="CONFORME" {% if item.resultado == 'CONFORME' %}selected{% endif %}>Conforme</option>
+              <option value="NAO_CONFORME" {% if item.resultado == 'NAO_CONFORME' %}selected{% endif %}>Não conforme</option>
+              <option value="NA" {% if item.resultado == 'NA' %}selected{% endif %}>Não se aplica</option>
+            </select>
+          </label>
+          <label>Observação<textarea name="observacao" maxlength="1000" rows="2" class="block mt-1 w-full bg-[#11192c] rounded-lg p-2 border border-slate-700 text-white">{{ item.observacao }}</textarea></label>
+          <button class="btn btn-muted" type="submit">Atualizar item</button>
+        </form>
+      </details>
+      {% endif %}
+      <details class="border-t border-slate-800 pt-2">
+        <summary class="text-xs text-slate-400 hover:text-cyan-300 cursor-pointer">Histórico de verificações deste item</summary>
+        <div class="space-y-3 mt-3">
+          {% for evento in item.eventos.all %}
+          <div class="border-l-2 border-slate-600 pl-3 text-xs">
+            <p class="font-semibold text-slate-200">{{ evento.resultado_anterior|default:"Novo item" }} → {{ evento.resultado_novo }}</p>
+            <p class="text-slate-400 mt-1">{{ evento.criado_em|date:"d/m/Y H:i" }} · {% if evento.autor %}{{ evento.autor.get_username }}{% else %}Usuário excluído{% endif %}</p>
+            <p class="mt-2 whitespace-pre-line break-words">{{ evento.observacao }}</p>
+          </div>
+          {% empty %}<p class="text-xs text-slate-400">Sem eventos registrados.</p>{% endfor %}
+        </div>
+      </details>
+    </article>
+    {% empty %}
+    <p class="text-sm text-slate-400 py-6">Nenhum item foi verificado nesta medição. Adicione o primeiro item abaixo.</p>
+    {% endfor %}
+  </section>
+  <aside class="panel p-5 h-fit">
+    <h2 class="text-xl font-bold mb-3">Adicionar item</h2>
+    <p class="text-xs text-slate-400 mb-4">Descreva um critério concreto de inspeção (ex.: prumo, nivelamento, verga, acabamento).</p>
+    <form method="post" action="{% url 'criar_item_fvs' medicao.pk %}">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-primary" type="submit">Registrar verificação</button>
+    </form>
+    {% if not pode_aprovar %}
+    <p class="text-amber-300 text-xs mt-4">A confirmação de conformidade ou não aplicabilidade depende de usuário autorizado.</p>
+    {% endif %}
+    <a class="text-cyan-300 text-sm underline block mt-5" href="{% url 'abrir_rnc_pagina' medicao.pk %}">Encontrou uma falha? Abrir RNC</a>
+  </aside>
+</div>
+<section class="panel p-4 text-xs text-slate-400">
+  Este checklist complementa a FVS existente. O status global continua sendo aprovado por profissional autorizado na janela de vistoria, após analisar os itens e eventuais RNCs abertas. Não é uma assinatura digital formal.
+</section>
+{% endblock %}
