@@ -1,3 +1,4 @@
+{% load static %}
 <!doctype html>
 <html lang="pt-br">
 <head>
@@ -5,7 +6,7 @@
  <meta name="viewport" content="width=device-width, initial-scale=1">
  <meta name="color-scheme" content="dark">
  <title>{% block title %}Painel{% endblock %} | SGO.IA</title>
- <script src="https://cdn.tailwindcss.com"></script>
+ <link rel="stylesheet" href="{% static 'obras/css/tailwind.min.css' %}">
  {% block head_extra %}{% endblock %}
  <style>
   :root{--sgo-bg:#080f1b;--sgo-surface:#111b2b;--sgo-border:#26374e;--sgo-mute:#95a9c1;--sgo-accent:#52d9f3}
