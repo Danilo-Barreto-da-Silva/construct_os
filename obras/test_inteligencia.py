@@ -354,6 +354,17 @@ class InteligenciaTests(TestCase):
         self.assertEqual(len(refs),1)
         self.assertEqual(refs[0]['folha'],1)
 
+    def test_gemeo_3d_usa_modulos_three_locais_sem_cdn(self):
+        self.client.force_login(self.gestor)
+        resposta = self.client.get(
+            reverse('gemeo_conceitual', args=[self.apto.pk])
+        )
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, 'obras/vendor/three/build/three.module.')
+        self.assertContains(resposta, 'obras/vendor/three/examples/jsm/')
+        self.assertNotContains(resposta, 'cdn.jsdelivr.net/npm/three')
+        self.assertContains(resposta, 'GEOMETRIA FICTÍCIA')
+
     def test_falha_gemini_deixa_log_sem_criar_medicao(self):
         visto = VistoriaInteligente.objects.create(
             apartamento=self.apto, arquivo=video_teste(),
