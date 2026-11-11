@@ -30,10 +30,13 @@ jobs:
           DJANGO_DEBUG: '0'
           DJANGO_ALLOWED_HOSTS: localhost,testserver
           DJANGO_SECURE_SSL_REDIRECT: '0'
+          DJANGO_SMTP_HOST: smtp.test.invalid
           GEMINI_API_KEY: MODO_SIMULACAO
         run: |
           python manage.py collectstatic --noinput --clear --verbosity 0
           python manage.py check
           python manage.py makemigrations --check --dry-run
           python manage.py test
-          DJANGO_SECURE_SSL_REDIRECT=1 python manage.py check --deploy --fail-level WARNING
+          # Preload / includeSubdomains do HSTS exigem domínio validado.
+          # Os avisos W005 e W021 são deliberados nesta fase; zero ERROS.
+          DJANGO_SECURE_SSL_REDIRECT=1 python manage.py check --deploy --fail-level ERROR
